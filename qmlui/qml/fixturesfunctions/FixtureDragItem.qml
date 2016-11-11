@@ -18,28 +18,37 @@
 */
 
 import QtQuick 2.0
+import "."
 
-Rectangle {
-    property int channels: 1
+Rectangle
+{
     property string manufacturer
     property string model
     property string mode
 
-    width: 80
-    height: 80
+    property int universe: 0
+    property int address: 0
+    property int channels: 1
+    property int quantity: 1
+    property int gap: 0
+
+    width: height
+    height: UISettings.bigItemHeight * 0.75
     z: 10
     border.width: 1
     border.color: "black"
     opacity: 0.7
-    color: "white"
+    color: UISettings.bgMedium
 
-    RobotoText {
+    RobotoText
+    {
         anchors.fill: parent
         anchors.margins: 1
         label: manufacturer + " - " + model
-        labelColor: "black"
-        fontSize: 10
+        labelColor: UISettings.fgMain
+        fontSize: UISettings.textSizeDefault * 0.75
         wrapText: true
+        textHAlign: Text.AlignHCenter
     }
 
     Drag.active: fxMouseArea.drag.active

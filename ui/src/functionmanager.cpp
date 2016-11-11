@@ -40,6 +40,7 @@
 #include "functionstreewidget.h"
 #include "functionselection.h"
 #include "collectioneditor.h"
+#include "audioplugincache.h"
 #include "functionmanager.h"
 #include "rgbmatrixeditor.h"
 #include "functionwizard.h"
@@ -477,7 +478,7 @@ void FunctionManager::slotAddAudio()
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
 
     /* Append file filters to the dialog */
-    QStringList extList = Audio::getCapabilities();
+    QStringList extList = m_doc->audioPluginCache()->getSupportedFormats();
 
     QStringList filters;
     qDebug() << Q_FUNC_INFO << "Extensions: " << extList.join(" ");
@@ -584,6 +585,9 @@ void FunctionManager::slotSelectAutostartFunction()
     FunctionSelection fs(this, m_doc);
     fs.setMultiSelection(false);
     fs.showNone(true);
+    QList<quint32> currentStartupSelection;
+    currentStartupSelection.append(m_doc->startupFunction());
+    fs.setSelection(currentStartupSelection);
 
     if (fs.exec() == QDialog::Accepted && fs.selection().size() > 0)
     {

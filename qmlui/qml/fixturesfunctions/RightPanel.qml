@@ -19,89 +19,73 @@
 
 import QtQuick 2.0
 
-Rectangle
+import com.qlcplus.classes 1.0
+import "."
+
+SidePanel
 {
     id: rightSidePanel
-    width: collapseWidth
-    height: 500
-    color: "#232323"
 
-    property bool isOpen: false
-    property int collapseWidth: 50
-    property int expandedWidth: 450
-    property string editorSource: ""
+    property int editorFuncID: -1
 
-    function animatePanel()
+    function createFunctionAndEditor(fType, fEditor)
     {
-        if (rightSidePanel.isOpen == false)
+        // reset the current editor first
+        loaderSource = ""
+        var newFuncID = functionManager.createFunction(fType)
+        functionManager.setEditorFunction(newFuncID)
+        if (fType === Function.Show)
         {
-            editorLoader.source = editorSource;
-            animateOpen.start();
-            rightSidePanel.isOpen = true;
+            showManager.currentShowID = newFuncID
+            mainView.switchToContext("SHOWMGR", fEditor)
         }
         else
         {
-            animateClose.start();
-            rightSidePanel.isOpen = false;
+            itemID = newFuncID
+            loaderSource = fEditor
+            animatePanel(true)
+            addFunctionMenu.visible = false
+            addFunction.checked = false
+            funcEditor.checked = true
         }
     }
 
-    Rectangle
-    {
-        id: editorArea
-        x: collapseWidth
-        width: rightSidePanel.width - collapseWidth;
-        height: parent.height
-        color: "transparent"
-
-        Loader
-        {
-            id: editorLoader
-            anchors.fill: parent
-
-            property int functionID
-
-            onLoaded:
-            {
-                item.functionID = functionID
-            }
-        }
-    }
+    onContentLoaded: item.functionID = itemID
 
     Rectangle
     {
-        x: 3
         width: collapseWidth
         height: parent.height
-        color: "#00000000"
+        color: "transparent"
         z: 2
 
         Column
         {
-            anchors.fill: parent
+            anchors.horizontalCenter: parent.horizontalCenter
             spacing: 3
 
             IconButton
             {
                 id: funcEditor
                 z: 2
-                width: collapseWidth - 4
-                height: collapseWidth - 4
+                width: iconSize
+                height: iconSize
                 imgSource: "qrc:/functions.svg"
                 tooltip: qsTr("Function Manager")
                 checkable: true
                 onToggled:
                 {
-                    editorSource = "qrc:/FunctionManager.qml"
-                    animatePanel();
+                    if (checked)
+                        loaderSource = "qrc:/FunctionManager.qml"
+                    animatePanel(checked)
                 }
             }
             IconButton
             {
                 id: addFunction
                 z: 2
-                width: collapseWidth - 4
-                height: collapseWidth - 4
+                width: iconSize
+                height: iconSize
                 imgSource: "qrc:/add.svg"
                 tooltip: qsTr("Add a new function")
                 checkable: true
@@ -112,6 +96,28 @@ Rectangle
                     id: addFunctionMenu
                     visible: false
                     x: -width
+
+                    onEntryClicked: createFunctionAndEditor(fType, fEditor)
+                }
+            }
+            IconButton
+            {
+                id: removeFunction
+                z: 2
+                width: iconSize
+                height: iconSize
+                imgSource: "qrc:/remove.svg"
+                tooltip: qsTr("Remove the selected functions")
+                counter: functionManager.selectionCount
+                onClicked:
+                {
+                    var selNames = functionManager.selectedFunctionsName()
+                    console.log(selNames)
+
+                    actionManager.requestActionPopup(ActionManager.DeleteFunctions,
+                                                     qsTr("Are you sure you want to remove the following functions ?\n" + selNames),
+                                                     ActionManager.OK | ActionManager.Cancel,
+                                                     functionManager.selectedFunctionsID())
                 }
             }
             IconButton
@@ -119,21 +125,16 @@ Rectangle
                 id: sceneDump
                 objectName: "dumpButton"
                 z: 2
-                width: collapseWidth - 4
-                height: collapseWidth - 4
+                width: iconSize
+                height: iconSize
                 imgSource: "qrc:/dmxdump.svg"
                 tooltip: qsTr("Dump to a Scene")
                 visible: false
                 onClicked:
                 {
                     contextManager.dumpDmxChannels()
-                    editorSource = "qrc:///FunctionManager.qml"
-                    if (rightSidePanel.isOpen == false)
-                    {
-                        editorLoader.source = editorSource;
-                        animateOpen.start();
-                        rightSidePanel.isOpen = true;
-                    }
+                    loaderSource = "qrc:/FunctionManager.qml"
+                    animatePanel(true)
                     funcEditor.checked = true
                 }
             }
@@ -142,71 +143,14 @@ Rectangle
                 id: previewFunc
                 objectName: "previewButton"
                 z: 2
-                width: collapseWidth - 4
-                height: collapseWidth - 4
+                width: iconSize
+                height: iconSize
                 imgSource: "qrc:/play.svg"
                 tooltip: qsTr("Function Preview")
                 checkable: true
-                visible: false
+                counter: functionManager.selectionCount
                 onToggled: functionManager.setPreview(checked)
             }
-        }
-    }
-
-    PropertyAnimation
-    {
-        id: animateOpen
-        target: rightSidePanel
-        properties: "width"
-        to: expandedWidth
-        duration: 200
-    }
-
-    PropertyAnimation
-    {
-        id: animateClose
-        target: rightSidePanel
-        properties: "width"
-        to: collapseWidth
-        duration: 200
-    }
-
-    Rectangle
-    {
-        id: gradientBorder
-        y: 0
-        x: height
-        height: collapseWidth
-        color: "#141414"
-        width: parent.height
-        transformOrigin: Item.TopLeft
-        rotation: 90
-        gradient: Gradient
-        {
-            GradientStop { position: 0; color: "#141414" }
-            GradientStop { position: 0.213; color: "#232323" }
-            GradientStop { position: 0.79; color: "#232323" }
-            GradientStop { position: 1; color: "#141414" }
-        }
-
-        MouseArea
-        {
-            id: rpClickArea
-            anchors.fill: parent
-            z: 1
-            x: parent.width - width
-            hoverEnabled: true
-            cursorShape: Qt.OpenHandCursor
-            drag.target: rightSidePanel
-            drag.axis: Drag.XAxis
-            drag.minimumX: collapseWidth
-
-            onPositionChanged:
-            {
-                if (drag.active == true)
-                    rightSidePanel.width = rightSidePanel.parent.width - rightSidePanel.x
-            }
-            //onClicked: animatePanel("")
         }
     }
 }

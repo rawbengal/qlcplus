@@ -23,6 +23,8 @@
 #include <QAbstractListModel>
 #include <QStringList>
 
+#define SEARCH_MIN_CHARS    3
+
 class TreeModelItem;
 
 class TreeModel : public QAbstractListModel
@@ -30,12 +32,22 @@ class TreeModel : public QAbstractListModel
     Q_OBJECT
     Q_DISABLE_COPY(TreeModel)
 public:
-    enum FixedRoles {
+    enum FixedRoles
+    {
         LabelRole = Qt::UserRole + 1,
+        PathRole,
+        IsExpandedRole,
+        IsSelectedRole,
         ItemsCountRole,
         HasChildrenRole,
         ChildrenModel,
         FixedRolesEnd
+    };
+
+    enum TreeFlags
+    {
+        Selected = 0,
+        Expanded
     };
 
     TreeModel(QObject *parent = 0);
@@ -47,13 +59,21 @@ public:
 
     void enableSorting(bool enable);
 
-    void addItem(QString label, QVariantList data, QString path = QString());
+    TreeModelItem *addItem(QString label, QVariantList data, QString path = QString(), int flags = 0);
 
     Q_INVOKABLE int rowCount(const QModelIndex & parent = QModelIndex()) const;
 
     QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const;
 
+    bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
+
     void printTree(int tab = 0);
+
+signals:
+    void singleSelection(TreeModelItem *item);
+
+protected slots:
+    void setSingleSelection(TreeModelItem *item);
 
 protected:
     int getItemIndex(QString label);

@@ -296,10 +296,10 @@ void MidiPlugin::sendFeedBack(quint32 universe, quint32 output, quint32 channel,
     MidiOutputDevice* dev = outputDevice(output);
     if (dev != NULL)
     {
-        qDebug() << "[sendFeedBack] Dev:" << dev->name() << ", channel:" << channel << ", value:" << value;
+        qDebug() << "[sendFeedBack] Dev:" << dev->name() << ", channel:" << channel << ", value:" << value << dev->sendNoteOff();
         uchar cmd = 0;
         uchar data1 = 0, data2 = 0;
-        if (QLCMIDIProtocol::feedbackToMidi(channel, value, dev->midiChannel(),
+        if (QLCMIDIProtocol::feedbackToMidi(channel, value, dev->midiChannel(), dev->sendNoteOff(),
                                         &cmd, &data1, &data2) == true)
         {
             qDebug() << "[sendFeedBack] cmd:" << cmd << "data1:" << data1 << "data2:" << data2;
@@ -431,6 +431,12 @@ void MidiPlugin::setParameter(quint32 universe, quint32 line, Capability type,
             dev->setMode(MidiDevice::stringToMode(value.toString()));
         else if (name == "initmessage")
             dev->setMidiTemplateName(value.toString());
+        else if (name == "MIDISendNoteOff")
+        {
+            dev = qobject_cast<MidiDevice*>(outputDevice(line));
+            if (dev != NULL)
+                dev->setSendNoteOff(value.toBool());
+        }
 
         QLCIOPlugin::setParameter(universe, line, type, name, value);
     }
@@ -514,6 +520,24 @@ void MidiPlugin::loadMidiTemplates(const QDir& dir)
 QList <MidiTemplate*> MidiPlugin::midiTemplates()
 {
     return m_midiTemplates;
+}
+
+/*****************************************************************************
+ * Hotplug
+ *****************************************************************************/
+
+void MidiPlugin::slotDeviceAdded(uint vid, uint pid)
+{
+    qDebug() << Q_FUNC_INFO << QString::number(vid, 16) << QString::number(pid, 16);
+
+    m_enumerator->rescan();
+}
+
+void MidiPlugin::slotDeviceRemoved(uint vid, uint pid)
+{
+    qDebug() << Q_FUNC_INFO << QString::number(vid, 16) << QString::number(pid, 16);
+
+    m_enumerator->rescan();
 }
 
 /*****************************************************************************

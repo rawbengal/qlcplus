@@ -31,6 +31,7 @@
 class Doc;
 class Function;
 class SceneEditor;
+class FunctionEditor;
 
 typedef struct
 {
@@ -43,6 +44,10 @@ class FunctionManager : public QObject
     Q_OBJECT
 
     Q_PROPERTY(QVariant functionsList READ functionsList NOTIFY functionsListChanged)
+    Q_PROPERTY(int functionsFilter READ functionsFilter CONSTANT)
+    Q_PROPERTY(QString searchFilter READ searchFilter WRITE setSearchFilter NOTIFY searchFilterChanged)
+    Q_PROPERTY(int selectionCount READ selectionCount NOTIFY selectionCountChanged)
+    Q_PROPERTY(int viewPosition READ viewPosition WRITE setViewPosition NOTIFY viewPositionChanged)
 
     Q_PROPERTY(int sceneCount READ sceneCount NOTIFY sceneCountChanged)
     Q_PROPERTY(int chaserCount READ chaserCount NOTIFY chaserCountChanged)
@@ -57,15 +62,34 @@ class FunctionManager : public QObject
 public:
     FunctionManager(QQuickView *view, Doc *doc, QObject *parent = 0);
 
+    /*********************************************************************
+     * Functions
+     *********************************************************************/
     QVariant functionsList();
 
+    Q_INVOKABLE QVariantList selectedFunctionsID();
+    Q_INVOKABLE QStringList selectedFunctionsName();
+
+    /** Enable/disable the display of a Function type in the functions tree */
     Q_INVOKABLE void setFunctionFilter(quint32 filter, bool enable);
-    Q_INVOKABLE void selectFunction(quint32 id, QQuickItem *item, bool multiSelection);
+    int functionsFilter() const;
+
+    /** Get/Set a string to filter Function names */
+    QString searchFilter() const;
+    void setSearchFilter(QString searchFilter);
+
     Q_INVOKABLE quint32 createFunction(int type);
     Q_INVOKABLE Function *getFunction(quint32 id);
+    Q_INVOKABLE QString functionIcon(int type);
     Q_INVOKABLE void clearTree();
     Q_INVOKABLE void setPreview(bool enable);
+    Q_INVOKABLE void selectFunctionID(quint32 fID, bool multiSelection);
     Q_INVOKABLE void setEditorFunction(quint32 fID);
+    void deleteFunctions(QVariantList IDList);
+    void deleteEditorItems(QVariantList list);
+
+    /** Returns the number of the currently selected Functions */
+    int selectionCount() const;
 
     int sceneCount() const { return m_sceneCount; }
     int chaserCount() const { return m_chaserCount; }
@@ -77,10 +101,15 @@ public:
     int audioCount() const { return m_audioCount; }
     int videoCount() const { return m_videoCount; }
 
-    void dumpOnNewScene(QList<SceneValue> list);
+    void setViewPosition(int viewPosition);
+    int viewPosition() const;
+
+protected:
+    void updateFunctionsTree();
 
 signals:
     void functionsListChanged();
+    void searchFilterChanged();
     void sceneCountChanged();
     void chaserCountChanged();
     void efxCountChanged();
@@ -90,10 +119,13 @@ signals:
     void showCountChanged();
     void audioCountChanged();
     void videoCountChanged();
-    void functionEditingStarted();
+    void functionEditingChanged(bool enable);
+    void selectionCountChanged(int count);
+    void viewPositionChanged(int viewPosition);
 
 public slots:
     void slotDocLoaded();
+    void slotFunctionAdded();
 
 private:
     /** Reference of the QML view */
@@ -102,18 +134,48 @@ private:
     Doc *m_doc;
     /** Reference to the Functions tree model */
     TreeModel *m_functionTree;
-    /** List of the currently selected Functions */
-    QList <selectedFunction> m_selectedFunctions;
+    /** The QML ListView position in pixel for state restoring */
+    int m_viewPosition;
 
     /** Flag that hold if Functions preview is enabled or not */
     bool m_previewEnabled;
+    /** List of the Function IDs currently selected
+     *  and previewed, if preview is enabled */
+    QVariantList m_selectedIDList;
 
     quint32 m_filter;
+    QString m_searchFilter;
+
     int m_sceneCount, m_chaserCount, m_efxCount;
     int m_collectionCount, m_rgbMatrixCount, m_scriptCount;
     int m_showCount, m_audioCount, m_videoCount;
 
-    SceneEditor *m_sceneEditor;
+    FunctionEditor *m_currentEditor;
+
+    /*********************************************************************
+     * DMX values (dumping and Scene editor)
+     *********************************************************************/
+public:
+    /** Store a channel value for Scene dumping */
+    void setDumpValue(quint32 fxID, quint32 channel, uchar value);
+
+    /** Return the currently set channel values */
+    QMap <QPair<quint32,quint32>,uchar> dumpValues() const;
+
+    /** Return the number of the currently set channel values */
+    int dumpValuesCount() const;
+
+    /** Reset the currently set channel values */
+    void resetDumpValues();
+
+    void dumpOnNewScene(QList<quint32> selectedFixtures);
+
+    void setChannelValue(quint32 fxID, quint32 channel, uchar value);
+
+private:
+
+    /** Map of the values available for dumping to a Scene */
+    QMap <QPair<quint32,quint32>,uchar> m_dumpValues;
 };
 
 #endif // FUNCTIONMANAGER_H

@@ -18,10 +18,17 @@ macx: {
     #QMAKE_CXXFLAGS_X86_64 = -mmacosx-version-min=10.7
     QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.9
     INCLUDEPATH += /opt/local/include
-    LIBS      += -L/opt/local/lib -lolaserver -lola -lolacommon -lprotobuf
+    LIBS      += -L/opt/local/lib -lolaserver -lola -lolacommon
 } else {
-    LIBS      += -L/usr/local/lib -lolaserver -lola -lolacommon -lprotobuf
+    LIBS      += -L/usr/local/lib -lolaserver -lola -lolacommon
 }
+
+unix:!macx {
+   metainfo.path   = $$INSTALLROOT/share/appdata/
+   metainfo.files += qlcplus-ola.metainfo.xml
+   INSTALLS       += metainfo 
+}
+
 
 # Forms
 FORMS += configureolaio.ui
@@ -54,7 +61,7 @@ TRANSLATIONS += OLA_ja_JP.ts
 # This must be after "TARGET = " and before target installation so that
 # install_name_tool can be run before target installation
 macx {
-    include(../../macx/nametool.pri)
+    include(../../platforms/macos/nametool.pri)
 }
 
 # Installation

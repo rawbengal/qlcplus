@@ -25,8 +25,11 @@
 
 TreeModelItem::TreeModelItem(QString label, QObject *parent)
     : QObject(parent)
+    , m_label(label)
 {
-    m_label = label;
+    m_path = QString();
+    m_isExpanded = false;
+    m_isSelected = false;
     m_children = NULL;
 }
 
@@ -51,9 +54,34 @@ void TreeModelItem::setLabel(QString label)
     m_label = label;
 }
 
-void TreeModelItem::setData(QVariantList data)
+QString TreeModelItem::path() const
 {
-    m_data = data;
+    return m_path;
+}
+
+void TreeModelItem::setPath(QString path)
+{
+    m_path = path;
+}
+
+bool TreeModelItem::isExpanded() const
+{
+    return m_isExpanded;
+}
+
+void TreeModelItem::setExpanded(bool expanded)
+{
+    m_isExpanded = expanded;
+}
+
+bool TreeModelItem::isSelected() const
+{
+    return m_isSelected;
+}
+
+void TreeModelItem::setSelected(bool selected)
+{
+    m_isSelected = selected;
 }
 
 QVariant TreeModelItem::data(int index)
@@ -65,25 +93,38 @@ QVariant TreeModelItem::data(int index)
     return m_data.at(index);
 }
 
-void TreeModelItem::setChildrenColumns(QStringList columns)
+void TreeModelItem::setData(QVariantList data)
 {
-    if (m_children == NULL)
-    {
-        m_children = new TreeModel();
-        QQmlEngine::setObjectOwnership(m_children, QQmlEngine::CppOwnership);
-    }
-    m_children->setColumnNames(columns);
+    m_data = data;
 }
 
-void TreeModelItem::addChild(QString label, QVariantList data, bool sorting, QString path)
+bool TreeModelItem::setChildrenColumns(QStringList columns)
 {
+    bool childrenTreeCreated = false;
     if (m_children == NULL)
     {
         m_children = new TreeModel();
         QQmlEngine::setObjectOwnership(m_children, QQmlEngine::CppOwnership);
+        childrenTreeCreated = true;
+    }
+    m_children->setColumnNames(columns);
+
+    return childrenTreeCreated;
+}
+
+bool TreeModelItem::addChild(QString label, QVariantList data, bool sorting, QString path, int flags)
+{
+    bool childrenTreeCreated = false;
+    if (m_children == NULL)
+    {
+        m_children = new TreeModel();
+        QQmlEngine::setObjectOwnership(m_children, QQmlEngine::CppOwnership);
+        childrenTreeCreated = true;
     }
     m_children->enableSorting(sorting);
-    m_children->addItem(label, data, path);
+    m_children->addItem(label, data, path, flags);
+
+    return childrenTreeCreated;
 }
 
 bool TreeModelItem::hasChildren()

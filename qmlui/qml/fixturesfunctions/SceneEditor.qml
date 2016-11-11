@@ -21,6 +21,7 @@ import QtQuick 2.0
 import QtQuick.Layouts 1.1
 
 import com.qlcplus.classes 1.0
+import "."
 
 Rectangle
 {
@@ -28,23 +29,31 @@ Rectangle
     anchors.fill: parent
     color: "transparent"
 
-    property int functionID: -1
+    property int functionID
+    property int selectedFixtureIndex: -1
 
-    Component.onDestruction: functionManager.setEditorFunction(-1)
+    signal requestView(int ID, string qmlSrc)
+
+    function selectFixture(index)
+    {
+        if (selectedFixtureIndex != -1)
+            sfxList.contentItem.children[selectedFixtureIndex].isSelected = false
+        selectedFixtureIndex = index
+    }
 
     Column
     {
         Rectangle
         {
-            color: "#333"
+            color: UISettings.bgMedium
             width: seContainer.width
-            height: 40
+            height: UISettings.iconSizeMedium
 
             Rectangle
             {
                 id: backBox
-                width: 40
-                height: 40
+                width: UISettings.iconSizeMedium
+                height: width
                 color: "transparent"
 
                 Image
@@ -59,36 +68,53 @@ Rectangle
                 {
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked:
-                    {
-                        editorLoader.source = "qrc:/FunctionManager.qml"
-                    }
                     onEntered: backBox.color = "#666"
                     onExited: backBox.color = "transparent"
+                    onClicked:
+                    {
+                        functionManager.setEditorFunction(-1)
+                        requestView(-1, "qrc:/FunctionManager.qml")
+                    }
                 }
             }
+
             TextInput
             {
                 id: sNameEdit
                 x: leftArrow.width + 5
-                y: 3
-                height: 40
-                width: seContainer.width // - addFunc.width - removeFunc.width
-                color: "#ffffff"
+                height: UISettings.iconSizeMedium
+                width: seContainer.width - backBox.width - removeFxButton.width - 10
+                color: UISettings.fgMain
+                clip: true
                 text: sceneEditor.sceneName
-                font.pixelSize: 20
+                verticalAlignment: TextInput.AlignVCenter
+                font.family: UISettings.robotoFontName
+                font.pixelSize: UISettings.textSizeDefault
                 echoMode: TextInput.Normal
+                selectByMouse: true
                 Layout.fillWidth: true
 
                 onTextChanged: sceneEditor.sceneName = text
+            }
+
+            IconButton
+            {
+                id: removeFxButton
+                x: parent.width - UISettings.iconSizeMedium - 5
+                width: height
+                height: UISettings.iconSizeMedium
+                imgSource: "qrc:/remove.svg"
+                tooltip: qsTr("Remove the selected fixtures")
+                onClicked: { /* TODO */  }
             }
         }
 
         ListView
         {
+            id: sfxList
             width: seContainer.width
-            height: seContainer.height - 40
-            y: 40
+            height: seContainer.height - UISettings.iconSizeMedium
+            y: UISettings.iconSizeMedium
             boundsBehavior: Flickable.StopAtBounds
             model: sceneEditor.fixtures
             delegate:
@@ -98,7 +124,14 @@ Rectangle
                     width: seContainer.width
 
                     Component.onCompleted: contextManager.setFixtureSelection(cRef.id, true)
+                    Component.onDestruction: contextManager.setFixtureSelection(cRef.id, false)
+                    onClicked:
+                    {
+                        sceneEditor.setFixtureSelection(cRef.id)
+                        seContainer.selectFixture(index)
+                    }
                 }
+            ScrollBar { flickable: sfxList }
         }
     }
 }

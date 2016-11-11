@@ -22,6 +22,7 @@ import QtQuick.Layouts 1.1
 import QtQuick.Controls 1.2
 
 import com.qlcplus.classes 1.0
+import "."
 
 Rectangle
 {
@@ -38,13 +39,12 @@ Rectangle
       {
         id: topBar
         width: geContainer.width
-        height: 44
+        height: UISettings.iconSizeMedium
         z: 5
         gradient: Gradient
         {
-            id: ffMenuGradient
-            GradientStop { position: 0 ; color: "#222" }
-            GradientStop { position: 1 ; color: "#111" }
+            GradientStop { position: 0; color: UISettings.toolbarStartSub }
+            GradientStop { position: 1; color: UISettings.toolbarEnd }
         }
 
         RowLayout
@@ -85,7 +85,7 @@ Rectangle
         height: geContainer.height - topBar.height
         z: 4
         boundsBehavior: Flickable.StopAtBounds
-        model: fixtureManager.groupsModel
+        model: fixtureManager.groupsTreeModel
         delegate:
             Component
             {
@@ -96,26 +96,39 @@ Rectangle
                     onLoaded:
                     {
                         item.textLabel = label
+                        item.isSelected = Qt.binding(function() { return isSelected })
+
                         if (hasChildren)
                         {
+                            item.nodePath = path
                             item.nodeIcon = "qrc:/group.svg"
+                            item.isExpanded = isExpanded
                             item.childrenDelegate = "qrc:/FixtureDelegate.qml"
-                            item.folderChildren = childrenModel
-                            item.childrenHeight = (childrenModel.rowCount() * 35)
+                            item.nodeChildren = childrenModel
                         }
                         else
                         {
                             item.cRef = classRef
                         }
                     }
+                    Connections
+                    {
+                        target: item
+                        onClicked:
+                        {
+                            if (qItem == item)
+                            {
+                                model.isSelected = (mouseMods & Qt.ControlModifier) ? 2 : 1
+                                if (model.hasChildren)
+                                    model.isExpanded = item.isExpanded
+                            }
+                        }
+                    }
                     /*
                     Connections
                     {
                           target: item
-                          onDoubleClicked:
-                          {
-                              loadFunctionEditor(fID, fType)
-                          }
+                          onDoubleClicked: { }
                     }
                     */
                 }

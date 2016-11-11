@@ -17,14 +17,16 @@
   limitations under the License.
 */
 
-
 import QtQuick 2.0
+import "."
 
 Rectangle
 {
     id: ioMgrContainer
     anchors.fill: parent
     color: "transparent"
+
+    property string contextName: "IOMGR"
 
     IOLeftPanel
     {
@@ -83,8 +85,57 @@ Rectangle
                             rightPanel.showPluginsButton = true
                             rightPanel.showAudioButton = false
                         }
+                        onPatchDragging:
+                        {
+                            removePatchBox.visible = status
+                        }
                     }
             }
+        }
+    }
+
+    /* Bottom container to drag a patch and delete it */
+    Rectangle
+    {
+        id: removePatchBox
+        x: (ioMgrContainer.width / 2) - (width / 2)
+        y: ioMgrContainer.height - (height / 2)
+        z: 10
+        width: UISettings.bigItemHeight * 2
+        height: UISettings.bigItemHeight
+        visible: false
+
+        radius: height / 2
+        color: "#7FFF0000"
+
+        Text
+        {
+            id: faIcon
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 15
+            color: "#aaa"
+            font.family: "FontAwesome"
+            font.pixelSize: UISettings.textSizeDefault * 2.5
+            text: FontAwesome.fa_trash_o
+        }
+
+        DropArea
+        {
+            anchors.fill: parent
+            id: delPatchDrop
+            keys: [ "removePatch" ]
+
+            states: [
+                State
+                {
+                    when: delPatchDrop.containsDrag
+                    PropertyChanges
+                    {
+                        target: removePatchBox
+                        color: "#7FFF8000"
+                    }
+                }
+            ]
         }
     }
 }

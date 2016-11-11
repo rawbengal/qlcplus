@@ -18,56 +18,17 @@
 */
 
 import QtQuick 2.0
+import QtQuick.Layouts 1.0
 import QtQuick.Controls 1.0
 
-Rectangle
+import "."
+
+SidePanel
 {
     id: leftSidePanel
     anchors.left: parent.left
     anchors.leftMargin: 0
-    width: collapseWidth
-    height: parent.height
-    color: "#232323"
-
-    property bool isOpen: false
-    property int collapseWidth: 50
-    property int expandedWidth: 450
-    property string editorSource: ""
-    property int iconSize: collapseWidth - 4
-
-    function animatePanel(checked)
-    {
-        if (checked === isOpen)
-            return
-
-        if (isOpen == false)
-        {
-            animateOpen.start()
-            isOpen = true
-        }
-        else
-        {
-            animateClose.start()
-            isOpen = false
-            editorSource = ""
-        }
-    }
-
-    Rectangle
-    {
-        id: editorArea
-        width: leftSidePanel.width - collapseWidth
-        height: parent.height
-        color: "transparent"
-
-        Loader
-        {
-            id: editorLoader
-            //objectName: "editorLoader"
-            anchors.fill: parent
-            source: editorSource
-        }
-    }
+    panelAlignment: Qt.AlignLeft
 
     Rectangle
     {
@@ -75,16 +36,17 @@ Rectangle
         x: parent.width - collapseWidth
         width: collapseWidth
         height: parent.height
-        color: "#00000000"
+        color: "transparent"
         z: 2
 
         ExclusiveGroup { id: fxManagerGroup }
         ExclusiveGroup { id: capabilitiesGroup }
 
-        Column
+        ColumnLayout
         {
-            anchors.fill: parent
-            anchors.leftMargin: 1
+            anchors.horizontalCenter: parent.horizontalCenter
+            height: parent.height
+            //anchors.leftMargin: 1
             spacing: 3
 
             IconButton
@@ -100,7 +62,7 @@ Rectangle
                 onToggled:
                 {
                     if (checked == true)
-                        editorSource = "qrc:/FixtureBrowser.qml"
+                        loaderSource = "qrc:/FixtureBrowser.qml"
                     animatePanel(checked)
                 }
             }
@@ -118,7 +80,7 @@ Rectangle
                 onToggled:
                 {
                     if (checked == true)
-                        editorSource = "qrc:/FixtureGroupEditor.qml"
+                        loaderSource = "qrc:/FixtureGroupEditor.qml"
                     animatePanel(checked)
                 }
             }
@@ -134,11 +96,14 @@ Rectangle
                 tooltip: qsTr("Intensity")
                 counter: 0
                 exclusiveGroup: capabilitiesGroup
-                onCheckedChanged: { intTool.visible = !intTool.visible }
+                onCheckedChanged: intTool.visible = !intTool.visible
+                onCounterChanged: if (counter == 0) intTool.visible = false
                 IntensityTool
                 {
                     id: intTool
-                    x: iconSize + 4
+                    parent: mainView
+                    x: leftSidePanel.width
+                    y: mainToolbar.height + 40
                     visible: false
                 }
             }
@@ -154,17 +119,23 @@ Rectangle
                 tooltip: qsTr("Color")
                 counter: 0
                 exclusiveGroup: capabilitiesGroup
-                onCheckedChanged: { colTool.visible = !colTool.visible }
+                onCheckedChanged: colTool.visible = !colTool.visible
+                onCounterChanged: if (counter == 0) colTool.visible = false
                 ColorTool
                 {
                     id: colTool
-                    x: iconSize + 4
+                    parent: mainView
+                    x: leftSidePanel.width
+                    y: mainToolbar.height + 40
                     visible: false
+
+                    onColorChanged: fixtureManager.setColorValue(r * 255, g * 255, b * 255, w * 255, a * 255, uv * 255)
                 }
             }
 
             IconButton
             {
+                id: posToolButton
                 objectName: "capPosition"
                 z: 2
                 width: iconSize
@@ -174,12 +145,21 @@ Rectangle
                 tooltip: qsTr("Position")
                 counter: 0
                 exclusiveGroup: capabilitiesGroup
-                onCheckedChanged: { posTool.visible = !posTool.visible }
+                onCheckedChanged: posTool.visible = !posTool.visible
+                onCounterChanged: if (counter == 0) posTool.visible = false
+
+                property int panDegrees: 360
+                property int tiltDegrees: 270
+
                 PositionTool
                 {
                     id: posTool
-                    x: iconSize + 4
+                    parent: mainView
+                    x: leftSidePanel.width
+                    y: mainToolbar.height + 40
                     visible: false
+                    panMaxDegrees: posToolButton.panDegrees
+                    tiltMaxDegrees: posToolButton.tiltDegrees
                 }
             }
 
@@ -195,11 +175,15 @@ Rectangle
                 counter: 0
                 exclusiveGroup: capabilitiesGroup
 
-                onCheckedChanged: { cWheelTool.visible = !cWheelTool.visible }
+                onCheckedChanged: cWheelTool.visible = !cWheelTool.visible
+                onCounterChanged: if (counter == 0) cWheelTool.visible = false
+
                 PresetsTool
                 {
                     id: cWheelTool
-                    x: iconSize + 4
+                    parent: mainView
+                    x: leftSidePanel.width
+                    y: mainToolbar.height + 40
                     visible: false
                 }
             }
@@ -216,76 +200,36 @@ Rectangle
                 counter: 0
                 exclusiveGroup: capabilitiesGroup
 
-                onCheckedChanged: { gobosTool.visible = !gobosTool.visible }
+                onCheckedChanged: gobosTool.visible = !gobosTool.visible
+                onCounterChanged: if (counter == 0) gobosTool.visible = false
                 PresetsTool
                 {
                     id: gobosTool
-                    x: iconSize + 4
+                    parent: mainView
+                    x: leftSidePanel.width
+                    y: mainToolbar.height + 40
                     visible: false
                     goboPresets: true
                 }
             }
-        }
-    }
 
-    PropertyAnimation
-    {
-        id: animateOpen
-        target: leftSidePanel
-        properties: "width"
-        to: expandedWidth
-        duration: 200
-    }
-
-    PropertyAnimation
-    {
-        id: animateClose
-        target: leftSidePanel
-        properties: "width"
-        to: collapseWidth
-        duration: 200
-    }
-
-    Rectangle
-    {
-        id: gradientBorder
-        y: width
-        x: parent.width - height
-        height: collapseWidth
-        color: "#141414"
-        width: parent.height
-        transformOrigin: Item.TopLeft
-        rotation: 270
-        gradient: Gradient
-        {
-            GradientStop { position: 0; color: "#141414" }
-            GradientStop { position: 0.213; color: "#232323" }
-            GradientStop { position: 0.79; color: "#232323" }
-            GradientStop { position: 1; color: "#141414" }
-        }
-
-        MouseArea
-        {
-            id: lpClickArea
-            anchors.fill: parent
-            z: 1
-            x: parent.width - width
-            hoverEnabled: true
-            cursorShape: Qt.OpenHandCursor
-            drag.target: leftSidePanel
-            drag.axis: Drag.XAxis
-            drag.minimumX: collapseWidth
-
-            onPositionChanged:
+            /* filler object */
+            Rectangle
             {
-                if (drag.active == true)
-                {
-                    var obj = mapToItem(null, mouseX, mouseY)
-                    leftSidePanel.width = obj.x + (collapseWidth / 2)
-                    //console.log("mouseX:", mouseX, "mapToItem().x:", obj.x);
-                }
+                Layout.fillHeight: true
+                width: iconSize
+                color: "transparent"
             }
-            //onClicked: animatePanel("")
+
+            IconButton
+            {
+                z: 2
+                width: iconSize
+                height: iconSize
+                imgSource: "qrc:/selectall.svg"
+                tooltip: qsTr("Select/Deselect all fixtures")
+                onClicked: contextManager.toggleFixturesSelection()
+            }
         }
     }
 }

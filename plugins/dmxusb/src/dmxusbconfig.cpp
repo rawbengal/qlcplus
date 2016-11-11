@@ -88,9 +88,9 @@ void DMXUSBConfig::slotTypeComboActivated(int index)
     if (var.isValid() == true)
     {
         DMXUSBWidget::Type type = (DMXUSBWidget::Type)combo->itemData(index).toInt();
-        QMap <QString,QVariant> typeMap(QLCFTDI::typeMap());
+        QMap <QString,QVariant> typeMap(DMXInterface::typeMap());
         typeMap[var.toString()] = type;
-        QLCFTDI::storeTypeMap(typeMap);
+        DMXInterface::storeTypeMap(typeMap);
     }
 
     QTimer::singleShot(0, this, SLOT(slotRefresh()));
@@ -111,8 +111,7 @@ void DMXUSBConfig::slotRefresh()
         m_tree->setItemWidget(item, COL_TYPE, createTypeCombo(widget));
     }
 
-    m_tree->resizeColumnToContents(COL_NAME);
-    m_tree->resizeColumnToContents(COL_SERIAL);
+    m_tree->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 QComboBox* DMXUSBConfig::createTypeCombo(DMXUSBWidget *widget)

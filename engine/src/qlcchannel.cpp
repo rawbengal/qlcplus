@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   qlcchannel.cpp
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,12 +18,13 @@
   limitations under the License.
 */
 
+#include <QXmlStreamReader>
 #include <QStringList>
 #include <QPainter>
 #include <iostream>
 #include <QString>
+#include <QDebug>
 #include <QFile>
-#include <QtXml>
 
 #include "qlcchannel.h"
 #include "qlccapability.h"
@@ -50,6 +52,8 @@
 #define KXMLQLCChannelColourAmber      QString("Amber")
 #define KXMLQLCChannelColourWhite      QString("White")
 #define KXMLQLCChannelColourUV         QString("UV")
+#define KXMLQLCChannelColourLime       QString("Lime")
+#define KXMLQLCChannelColourIndigo     QString("Indigo")
 
 QLCChannel::QLCChannel()
 {
@@ -237,6 +241,10 @@ QIcon QLCChannel::getIntensityIcon() const
         pm = drawIntensity(Qt::white, "W");
     else if (m_colour == QLCChannel::UV)
         pm = drawIntensity(QColor(0xFF9400D3), "UV");
+    else if (m_colour == QLCChannel::Lime)
+        pm = drawIntensity(QColor(0xFFADFF2F), "L");
+    else if (m_colour == QLCChannel::Indigo)
+        pm = drawIntensity(QColor(0xFF4B0082), "I");
     else
     {
         // None of the primary colours matched and since this is an
@@ -267,6 +275,10 @@ QString QLCChannel::getIntensityColorCode() const
         return QString("#FFFFFF");
     else if (m_colour == QLCChannel::UV)
         return QString("#9400D3");
+    else if (m_colour == QLCChannel::Lime)
+        return QString("#ADFF2F");
+    else if (m_colour == QLCChannel::Indigo)
+        return QString("#4B0082");
     else
     {
         // None of the primary colours matched and since this is an
@@ -347,6 +359,8 @@ QStringList QLCChannel::colourList()
     list << KXMLQLCChannelColourAmber;
     list << KXMLQLCChannelColourWhite;
     list << KXMLQLCChannelColourUV;
+    list << KXMLQLCChannelColourLime;
+    list << KXMLQLCChannelColourIndigo;
     return list;
 }
 
@@ -372,6 +386,10 @@ QString QLCChannel::colourToString(PrimaryColour colour)
         return KXMLQLCChannelColourWhite;
     case UV:
         return KXMLQLCChannelColourUV;
+    case Lime:
+        return KXMLQLCChannelColourLime;
+    case Indigo:
+        return KXMLQLCChannelColourIndigo;
     case NoColour:
     default:
         return KXMLQLCChannelColourGeneric;
@@ -398,6 +416,10 @@ QLCChannel::PrimaryColour QLCChannel::stringToColour(const QString& str)
         return White;
     else if (str == KXMLQLCChannelColourUV)
         return UV;
+    else if (str == KXMLQLCChannelColourLime)
+        return Lime;
+    else if (str == KXMLQLCChannelColourIndigo)
+        return Indigo;
     else
         return NoColour;
 }
@@ -466,6 +488,32 @@ bool QLCChannel::addCapability(QLCCapability* cap)
     return true;
 }
 
+bool QLCChannel::setCapabilityRange(QLCCapability* cap, uchar min, uchar max)
+{
+    Q_ASSERT(cap != NULL);
+
+    uchar prevMin = cap->min();
+    cap->setMin(min);
+    uchar prevMax = cap->max();
+    cap->setMax(max);
+
+    /* Check for overlapping values */
+    foreach (QLCCapability* another, m_capabilities)
+    {
+        if (another == cap)
+            continue;
+
+        if (another->overlaps(cap) == true)
+        {
+            cap->setMin(prevMin);
+            cap->setMax(prevMax);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool QLCChannel::removeCapability(QLCCapability* cap)
 {
     Q_ASSERT(cap != NULL);
@@ -498,70 +546,57 @@ void QLCChannel::sortCapabilities()
  * File operations
  *****************************************************************************/
 
-bool QLCChannel::saveXML(QDomDocument* doc, QDomElement* root) const
+bool QLCChannel::saveXML(QXmlStreamWriter *doc) const
 {
-    QDomElement chtag;
-    QDomElement tag;
-    QDomText text;
-
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(root != NULL);
 
     /* Channel entry */
-    chtag = doc->createElement(KXMLQLCChannel);
-    chtag.setAttribute(KXMLQLCChannelName, m_name);
-    root->appendChild(chtag);
+    doc->writeStartElement(KXMLQLCChannel);
+    doc->writeAttribute(KXMLQLCChannelName, m_name);
 
     /* Group */
-    tag = doc->createElement(KXMLQLCChannelGroup);
-    text = doc->createTextNode(groupToString(m_group));
-    tag.appendChild(text);
-
+    doc->writeStartElement(KXMLQLCChannelGroup);
     /* Group control byte */
-    tag.setAttribute(KXMLQLCChannelGroupByte, QString::number(controlByte()));
-    chtag.appendChild(tag);
+    doc->writeAttribute(KXMLQLCChannelGroupByte, QString::number(controlByte()));
+    /* Group name */
+    doc->writeCharacters(groupToString(m_group));
+    doc->writeEndElement();
 
     /* Colour */
     if (m_colour != NoColour)
-    {
-        tag = doc->createElement(KXMLQLCChannelColour);
-        text = doc->createTextNode(QLCChannel::colourToString(colour()));
-        tag.appendChild(text);
-        chtag.appendChild(tag);
-    }
+        doc->writeTextElement(KXMLQLCChannelColour, QLCChannel::colourToString(colour()));
 
     /* Capabilities */
     QListIterator <QLCCapability*> it(m_capabilities);
     while (it.hasNext() == true)
-        it.next()->saveXML(doc, &chtag);
+        it.next()->saveXML(doc);
 
+    doc->writeEndElement();
     return true;
 }
 
-bool QLCChannel::loadXML(const QDomElement& root)
+bool QLCChannel::loadXML(QXmlStreamReader &doc)
 {
-    if (root.tagName() != KXMLQLCChannel)
+    if (doc.name() != KXMLQLCChannel)
     {
         qWarning() << "Channel node not found.";
         return false;
     }
 
     /* Get channel name */
-    QString str = root.attribute(KXMLQLCChannelName);
+    QString str = doc.attributes().value(KXMLQLCChannelName).toString();
     if (str.isEmpty() == true)
         return false;
     setName(str);
 
     /* Subtags */
-    QDomNode node = root.firstChild();
-    while (node.isNull() == false)
+    while (doc.readNextStartElement())
     {
-        QDomElement tag = node.toElement();
-        if (tag.tagName() == KXMLQLCCapability)
+        if (doc.name() == KXMLQLCCapability)
         {
             /* Create a new capability and attempt to load it */
             QLCCapability* cap = new QLCCapability();
-            if (cap->loadXML(tag) == true)
+            if (cap->loadXML(doc) == true)
             {
                 /* Loading succeeded */
                 if (addCapability(cap) == false)
@@ -574,24 +609,24 @@ bool QLCChannel::loadXML(const QDomElement& root)
             {
                 /* Loading failed */
                 delete cap;
+                doc.skipCurrentElement();
             }
         }
-        else if (tag.tagName() == KXMLQLCChannelGroup)
+        else if (doc.name() == KXMLQLCChannelGroup)
         {
-            str = tag.attribute(KXMLQLCChannelGroupByte);
+            str = doc.attributes().value(KXMLQLCChannelGroupByte).toString();
             setControlByte(ControlByte(str.toInt()));
-            setGroup(stringToGroup(tag.text()));
+            setGroup(stringToGroup(doc.readElementText()));
         }
-        else if (tag.tagName() == KXMLQLCChannelColour)
+        else if (doc.name() == KXMLQLCChannelColour)
         {
-            setColour(stringToColour(tag.text()));
+            setColour(stringToColour(doc.readElementText()));
         }
         else
         {
-            qWarning() << Q_FUNC_INFO << "Unknown Channel tag: " << tag.tagName();
+            qWarning() << Q_FUNC_INFO << "Unknown Channel tag: " << doc.name();
+            doc.skipCurrentElement();
         }
-
-        node = node.nextSibling();
     }
 
     return true;

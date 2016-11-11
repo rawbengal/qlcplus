@@ -57,13 +57,14 @@ int DMXUSB::capabilities() const
 
 bool DMXUSB::rescanWidgets()
 {
+    int linesCount = m_inputs.count() + m_outputs.count();
     m_inputs.clear();
     m_outputs.clear();
 
     while(m_widgets.isEmpty() == false)
         delete m_widgets.takeFirst();
 
-    m_widgets = QLCFTDI::widgets();
+    m_widgets = DMXUSBWidget::widgets();
 
     foreach (DMXUSBWidget* widget, m_widgets)
     {
@@ -73,6 +74,9 @@ bool DMXUSB::rescanWidgets()
         for (int i = 0; i < widget->inputsNumber(); i++)
             m_inputs.append(widget);
     }
+
+    if (m_inputs.count() + m_outputs.count() != linesCount)
+        emit configurationChanged();
 
     return true;
 }
@@ -162,6 +166,8 @@ QString DMXUSB::outputInfo(quint32 output)
         str += QString("<H3>%1</H3>").arg(outputs()[output]);
         str += QString("<P>");
         str += tr("Device is operating correctly.");
+        str += QString("<BR>");
+        str += tr("Driver in use: %1").arg(m_outputs[output]->interfaceTypeString());
         str += QString("</P>");
         QString add = m_outputs[output]->additionalInfo();
         if (add.isEmpty() == false)
@@ -292,6 +298,34 @@ void DMXUSB::configure()
 bool DMXUSB::canConfigure()
 {
     return true;
+}
+
+/*****************************************************************************
+ * Hotplug
+ *****************************************************************************/
+
+void DMXUSB::slotDeviceAdded(uint vid, uint pid)
+{
+    qDebug() << Q_FUNC_INFO << QString::number(vid, 16) << QString::number(pid, 16);
+    if (!DMXInterface::validInterface(vid, pid))
+    {
+        qDebug() << Q_FUNC_INFO << "Invalid DMX USB device, nothing to do";
+        return;
+    }
+
+    rescanWidgets();
+}
+
+void DMXUSB::slotDeviceRemoved(uint vid, uint pid)
+{
+    qDebug() << Q_FUNC_INFO << QString::number(vid, 16) << QString::number(pid, 16);
+    if (!DMXInterface::validInterface(vid, pid))
+    {
+        qDebug() << Q_FUNC_INFO << "Invalid DMX USB device, nothing to do";
+        return;
+    }
+
+    rescanWidgets();
 }
 
 /****************************************************************************

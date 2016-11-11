@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   script.h
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -61,6 +62,9 @@ public:
     Script(Doc* doc);
     virtual ~Script();
 
+    /** @reimpl */
+    quint32 totalDuration();
+
     /************************************************************************
      * Copying
      ************************************************************************/
@@ -97,10 +101,10 @@ private:
      ************************************************************************/
 public:
     /** @reimpl */
-    bool loadXML(const QDomElement& root);
+    bool loadXML(QXmlStreamReader &root);
 
     /** @reimpl */
-    bool saveXML(QDomDocument* doc, QDomElement* root);
+    bool saveXML(QXmlStreamWriter *doc);
 
     /************************************************************************
      * Running
@@ -141,7 +145,7 @@ private:
      *
      * @return the randomized value requested
      */
-    quint32 getValueFromString(QString str, bool *ok);
+    static quint32 getValueFromString(QString str, bool *ok);
 
     /**
      * Handle "startfunction" command.
@@ -225,7 +229,7 @@ private:
 private:
     int m_currentCommand;        //! Current command line being handled
     quint32 m_waitCount;         //! Timer ticks to wait before executing the next line
-    QList <QList<QStringList> > m_lines; //! Raw data parsed into lines of tokens
+    QList < QList<QStringList> > m_lines; //! Raw data parsed into lines of tokens
     QMap <QString,int> m_labels; //! Labels and their line numbers
     QList <Function*> m_startedFunctions; //! Functions started by this script
     QList <int> m_syntaxErrorLines;

@@ -60,7 +60,9 @@ function createItem()
     {
         draggedItem = itemComponent.createObject(mainView,
                   {"x": posnInWindow.x, "y": posnInWindow.y, "z": 10,
-                   "manufacturer": manufacturer, "model": model });
+                   "manufacturer": manufacturer, "model": model,
+                   "address": address, "universe": universeIndex,
+                   "channels": channels, "quantity": quantity, "gap": gap });
     }
     else if (itemComponent.status === Component.Error)
     {
@@ -87,11 +89,22 @@ function endDrag(mouse)
     if (draggedItem == null)
         return;
 
+    var currContext = previewLoader.item.contextName
+    console.log("Current context: " + currContext)
+    var x = 0
+    var y = 0
+    if (currContext === "2D")
+    {
+        x = draggedItem.x - leftSidePanel.width
+        y = draggedItem.y - previewLoader.y - viewToolbar.height
+
+        console.log("Item x: " + x + ", y: " + y)
+    }
+
     fixtureManager.addFixture(manufacturer, model, mode, name,
-                              universeIndex, address, channels, quantity, gap,
-                              draggedItem.x - leftSidePanel.width,
-                              draggedItem.y - previewLoader.y - viewToolbar.height);
-    draggedItem.destroy();
+                              universeIndex, draggedItem.address, channels, quantity, gap,
+                              x, y)
+    draggedItem.destroy()
     draggedItem = null;
 }
 

@@ -18,10 +18,12 @@
 */
 
 #include <QTreeWidgetItem>
+#include <QMessageBox>
+#include <QSpacerItem>
 #include <QComboBox>
+#include <QLineEdit>
 #include <QSpinBox>
 #include <QLabel>
-#include <QString>
 #include <QDebug>
 
 #include "configureartnet.h"
@@ -36,6 +38,13 @@
 #define KMapColumnIPAddress     2
 #define KMapColumnArtNetUni     3
 #define KMapColumnTransmitMode  4
+
+#define PROP_UNIVERSE (Qt::UserRole + 0)
+#define PROP_LINE (Qt::UserRole + 1)
+#define PROP_TYPE (Qt::UserRole + 2)
+
+// ArtNet universe is a 15bit value
+#define ARTNET_UNIVERSE_MAX 0x7fff
 
 /*****************************************************************************
  * Initialization
@@ -84,9 +93,7 @@ void ConfigureArtNet::fillNodesTree()
         }
     }
 
-    m_nodesTree->resizeColumnToContents(KNodesColumnIP);
-    m_nodesTree->resizeColumnToContents(KNodesColumnShortName);
-    m_nodesTree->resizeColumnToContents(KNodesColumnLongName);
+    m_nodesTree->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 void ConfigureArtNet::fillMappingTree()
@@ -124,18 +131,29 @@ void ConfigureArtNet::fillMappingTree()
             if (info->type & ArtNetController::Input)
             {
                 QTreeWidgetItem *item = new QTreeWidgetItem(inputItem);
-                item->setText(KMapColumnInterface, controller->getNetworkIP());
+                item->setData(KMapColumnInterface, PROP_UNIVERSE, universe);
+                item->setData(KMapColumnInterface, PROP_LINE, controller->line());
+                item->setData(KMapColumnInterface, PROP_TYPE, ArtNetController::Input);
+
+                item->setText(KMapColumnInterface, io.address.broadcast().toString());
                 item->setText(KMapColumnUniverse, QString::number(universe + 1));
+                item->setTextAlignment(KMapColumnUniverse, Qt::AlignHCenter | Qt::AlignVCenter);
+
+                QSpinBox *spin = new QSpinBox(this);
+                spin->setRange(0, ARTNET_UNIVERSE_MAX);
+                spin->setValue(info->inputUniverse);
+                m_uniMapTree->setItemWidget(item, KMapColumnArtNetUni, spin);
             }
             if (info->type & ArtNetController::Output)
             {
                 QTreeWidgetItem *item = new QTreeWidgetItem(outputItem);
-                item->setData(KMapColumnInterface, Qt::UserRole, universe);
-                item->setData(KMapColumnInterface, Qt::UserRole + 1, controller->line());
-                item->setData(KMapColumnInterface, Qt::UserRole + 2, ArtNetController::Output);
+                item->setData(KMapColumnInterface, PROP_UNIVERSE, universe);
+                item->setData(KMapColumnInterface, PROP_LINE, controller->line());
+                item->setData(KMapColumnInterface, PROP_TYPE, ArtNetController::Output);
 
                 item->setText(KMapColumnInterface, controller->getNetworkIP());
                 item->setText(KMapColumnUniverse, QString::number(universe + 1));
+                item->setTextAlignment(KMapColumnUniverse, Qt::AlignHCenter | Qt::AlignVCenter);
 
                 if (info->outputAddress == QHostAddress::LocalHost)
                 {
@@ -144,50 +162,31 @@ void ConfigureArtNet::fillMappingTree()
                 }
                 else
                 {
-                    QWidget *IPwidget = createIPWidget(info->outputAddress.toString());
+                    QWidget *IPwidget = new QLineEdit(info->outputAddress.toString());
                     m_uniMapTree->setItemWidget(item, KMapColumnIPAddress, IPwidget);
                 }
 
                 QSpinBox *spin = new QSpinBox(this);
-                spin->setRange(0, 65535);
+                spin->setRange(0, ARTNET_UNIVERSE_MAX);
                 spin->setValue(info->outputUniverse);
                 m_uniMapTree->setItemWidget(item, KMapColumnArtNetUni, spin);
 
                 QComboBox *combo = new QComboBox(this);
                 combo->addItem(tr("Full"));
                 combo->addItem(tr("Partial"));
-                if (info->trasmissionMode == ArtNetController::Partial)
+                if (info->outputTransmissionMode == ArtNetController::Partial)
                     combo->setCurrentIndex(1);
                 m_uniMapTree->setItemWidget(item, KMapColumnTransmitMode, combo);
             }
         }
     }
 
-    m_uniMapTree->resizeColumnToContents(KMapColumnInterface);
-    m_uniMapTree->resizeColumnToContents(KMapColumnUniverse);
-    m_uniMapTree->resizeColumnToContents(KMapColumnIPAddress);
-    m_uniMapTree->resizeColumnToContents(KMapColumnArtNetUni);
-    m_uniMapTree->resizeColumnToContents(KMapColumnTransmitMode);
+    m_uniMapTree->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
-QWidget *ConfigureArtNet::createIPWidget(QString ip)
+void ConfigureArtNet::showIPAlert(QString ip)
 {
-    QWidget* widget = new QWidget(this);
-    widget->setLayout(new QHBoxLayout);
-    widget->layout()->setContentsMargins(0, 0, 0, 0);
-
-    QString baseIP = ip.mid(0, ip.lastIndexOf(".") + 1);
-    QString finalIP = ip.mid(ip.lastIndexOf(".") + 1);
-
-    QLabel *label = new QLabel(baseIP, this);
-    QSpinBox *spin = new QSpinBox(this);
-    spin->setRange(1, 255);
-    spin->setValue(finalIP.toInt());
-
-    widget->layout()->addWidget(label);
-    widget->layout()->addWidget(spin);
-
-    return widget;
+    QMessageBox::critical(this, tr("Invalid IP"), tr("%1 is not a valid IP.\nPlease fix it before confirming.").arg(ip));
 }
 
 ConfigureArtNet::~ConfigureArtNet()
@@ -206,46 +205,47 @@ void ConfigureArtNet::accept()
         for(int c = 0; c < topItem->childCount(); c++)
         {
             QTreeWidgetItem *item = topItem->child(c);
-            if (item->data(KMapColumnInterface, Qt::UserRole).isValid() == false)
+            if (item->data(KMapColumnInterface, PROP_UNIVERSE).isValid() == false)
                 continue;
 
-            quint32 universe = item->data(KMapColumnInterface, Qt::UserRole).toUInt();
-            quint32 line = item->data(KMapColumnInterface, Qt::UserRole + 1).toUInt();
-            ArtNetController::Type type = ArtNetController::Type(item->data(KMapColumnInterface, Qt::UserRole + 2).toInt());
+            quint32 universe = item->data(KMapColumnInterface, PROP_UNIVERSE).toUInt();
+            quint32 line = item->data(KMapColumnInterface, PROP_LINE).toUInt();
+            ArtNetController::Type type = ArtNetController::Type(item->data(KMapColumnInterface, PROP_TYPE).toInt());
             QLCIOPlugin::Capability cap = QLCIOPlugin::Input;
             if (type == ArtNetController::Output)
                 cap = QLCIOPlugin::Output;
 
-            QWidget *ipWidget = m_uniMapTree->itemWidget(item, KMapColumnIPAddress);
-            if (ipWidget != NULL)
+            QLineEdit *ipEdit = qobject_cast<QLineEdit*>(m_uniMapTree->itemWidget(item, KMapColumnIPAddress));
+            if (ipEdit != NULL)
             {
-                QSpinBox *spin = qobject_cast<QSpinBox*>(ipWidget->layout()->itemAt(1)->widget());
-                if (spin != NULL)
+                Q_ASSERT(cap == QLCIOPlugin::Output);
+                QHostAddress newHostAddress(ipEdit->text());
+                if (newHostAddress.isNull() && ipEdit->text().size() > 0)
                 {
-                    if (spin->value() != 255)
-                        m_plugin->setParameter(universe, line, cap, ARTNET_OUTPUTIP, spin->value());
-                    else
-                        m_plugin->unSetParameter(universe, line, cap, ARTNET_OUTPUTIP);
+                    showIPAlert(ipEdit->text());
+                    return;
                 }
+
+                //qDebug() << "IPchanged = " << IPChanged;
+                m_plugin->setParameter(universe, line, cap, ARTNET_OUTPUTIP, newHostAddress.toString());
             }
 
             QSpinBox *spin = qobject_cast<QSpinBox*>(m_uniMapTree->itemWidget(item, KMapColumnArtNetUni));
-            if (spin != NULL)
-            {
-                if ((quint32)spin->value() != universe)
-                    m_plugin->setParameter(universe, line, cap, ARTNET_OUTPUTUNI, spin->value());
-                else
-                    m_plugin->unSetParameter(universe, line, cap, ARTNET_OUTPUTUNI);
-            }
+            Q_ASSERT(spin != NULL);
+
+            m_plugin->setParameter(universe, line, cap, (cap == QLCIOPlugin::Output ? ARTNET_OUTPUTUNI : ARTNET_INPUTUNI), spin->value());
 
             QComboBox *combo = qobject_cast<QComboBox*>(m_uniMapTree->itemWidget(item, KMapColumnTransmitMode));
             if (combo != NULL)
             {
-                if(combo->currentIndex() == 1)
-                    m_plugin->setParameter(universe, line, cap, ARTNET_TRANSMITMODE,
-                                           ArtNetController::transmissionModeToString(ArtNetController::Partial));
+                ArtNetController::TransmissionMode transmissionMode;
+                if (combo->currentIndex() == 0)
+                    transmissionMode = ArtNetController::Full;
                 else
-                    m_plugin->unSetParameter(universe, line, cap, ARTNET_TRANSMITMODE);
+                    transmissionMode = ArtNetController::Partial;
+
+                m_plugin->setParameter(universe, line, cap, ARTNET_TRANSMITMODE,
+                        ArtNetController::transmissionModeToString(transmissionMode));
             }
         }
     }
@@ -257,4 +257,3 @@ int ConfigureArtNet::exec()
 {
     return QDialog::exec();
 }
-

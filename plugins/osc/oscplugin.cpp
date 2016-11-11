@@ -23,14 +23,14 @@
 #include <QSettings>
 #include <QDebug>
 
+#define MAX_INIT_RETRY  10
+
 OSCPlugin::~OSCPlugin()
 {
 }
 
 void OSCPlugin::init()
 {
-    m_IOmapping.clear();
-
     foreach(QNetworkInterface interface, QNetworkInterface::allInterfaces())
     {
         foreach (QNetworkAddressEntry entry, interface.addressEntries())
@@ -41,9 +41,20 @@ void OSCPlugin::init()
                 OSCIO tmpIO;
                 tmpIO.IPAddress = entry.ip().toString();
                 tmpIO.controller = NULL;
-                m_IOmapping.append(tmpIO);
 
-                m_netInterfaces.append(entry);
+                bool alreadyInList = false;
+                for(int j = 0; j < m_IOmapping.count(); j++)
+                {
+                    if (m_IOmapping.at(j).IPAddress == tmpIO.IPAddress)
+                    {
+                        alreadyInList = true;
+                        break;
+                    }
+                }
+                if (alreadyInList == false)
+                {
+                    m_IOmapping.append(tmpIO);
+                }
             }
         }
     }
@@ -77,6 +88,22 @@ QString OSCPlugin::pluginInfo()
     return str;
 }
 
+bool OSCPlugin::requestLine(quint32 line, int retries)
+{
+    int retryCount = 0;
+
+    while (line >= (quint32)m_IOmapping.length())
+    {
+        qDebug() << "[OSC] cannot open line" << line << "(available:" << m_IOmapping.length() << ")";
+        Sleep(1000);
+        init();
+        if (retryCount++ == retries)
+            return false;
+    }
+
+    return true;
+}
+
 /*********************************************************************
  * Outputs
  *********************************************************************/
@@ -85,8 +112,7 @@ QStringList OSCPlugin::outputs()
     QStringList list;
     int j = 0;
 
-    if (m_IOmapping.count() < 2)
-        init();
+    init();
 
     foreach (OSCIO line, m_IOmapping)
     {
@@ -98,9 +124,6 @@ QStringList OSCPlugin::outputs()
 
 QString OSCPlugin::outputInfo(quint32 output)
 {
-    if (m_IOmapping.count() < 2)
-        init();
-
     if (output >= (quint32)m_IOmapping.length())
         return QString();
 
@@ -127,10 +150,7 @@ QString OSCPlugin::outputInfo(quint32 output)
 
 bool OSCPlugin::openOutput(quint32 output, quint32 universe)
 {
-    if (m_IOmapping.count() < 2)
-        init();
-
-    if (output >= (quint32)m_IOmapping.length())
+    if (requestLine(output, MAX_INIT_RETRY) == false)
         return false;
 
     qDebug() << "[OSC] Open output with address :" << m_IOmapping.at(output).IPAddress;
@@ -185,8 +205,7 @@ QStringList OSCPlugin::inputs()
     QStringList list;
     int j = 0;
 
-    if (m_IOmapping.count() < 2)
-        init();
+    init();
 
     foreach (OSCIO line, m_IOmapping)
     {
@@ -198,10 +217,7 @@ QStringList OSCPlugin::inputs()
 
 bool OSCPlugin::openInput(quint32 input, quint32 universe)
 {
-    if (m_IOmapping.count() < 2)
-        init();
-
-    if (input >= (quint32)m_IOmapping.length())
+    if (requestLine(input, MAX_INIT_RETRY) == false)
         return false;
 
     qDebug() << "[OSC] Open input on address :" << m_IOmapping.at(input).IPAddress;
@@ -242,9 +258,6 @@ void OSCPlugin::closeInput(quint32 input, quint32 universe)
 
 QString OSCPlugin::inputInfo(quint32 input)
 {
-    if (m_IOmapping.count() < 2)
-        init();
-
     if (input >= (quint32)m_IOmapping.length())
         return QString();
 
@@ -304,23 +317,30 @@ void OSCPlugin::setParameter(quint32 universe, quint32 line, Capability type,
     if (controller == NULL)
         return;
 
+    // If the Controller parameter is restored to its default value,
+    // unset the corresponding plugin parameter
+    bool unset;
+
     if (name == OSC_INPUTPORT)
-        controller->setInputPort(universe, value.toUInt());
+        unset = controller->setInputPort(universe, value.toUInt());
     else if (name == OSC_FEEDBACKIP)
-        controller->setFeedbackIPAddress(universe, value.toString());
+        unset = controller->setFeedbackIPAddress(universe, value.toString());
     else if (name == OSC_FEEDBACKPORT)
-        controller->setFeedbackPort(universe, value.toUInt());
+        unset = controller->setFeedbackPort(universe, value.toUInt());
     else if (name == OSC_OUTPUTIP)
-        controller->setOutputIPAddress(universe, value.toString());
+        unset = controller->setOutputIPAddress(universe, value.toString());
     else if (name == OSC_OUTPUTPORT)
-        controller->setOutputPort(universe, value.toUInt());
+        unset = controller->setOutputPort(universe, value.toUInt());
+    else
+    {
+        qWarning() << Q_FUNC_INFO << name << "is not a valid OSC parameter";
+        return;
+    }
 
-    QLCIOPlugin::setParameter(universe, line, type, name, value);
-}
-
-QList<QNetworkAddressEntry> OSCPlugin::interfaces()
-{
-    return m_netInterfaces;
+    if (unset)
+        QLCIOPlugin::unSetParameter(universe, line, type, name);
+    else
+        QLCIOPlugin::setParameter(universe, line, type, name, value);
 }
 
 QList<OSCIO> OSCPlugin::getIOMapping()

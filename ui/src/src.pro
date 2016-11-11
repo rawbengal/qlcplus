@@ -6,13 +6,14 @@ LANGUAGE = C++
 TARGET   = qlcplusui
 
 CONFIG += qt
-QT     += core xml gui script
+QT     += core gui script
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets multimedia multimediawidgets
 
 INCLUDEPATH     += monitor showmanager virtualconsole
 
 # Engine
-INCLUDEPATH     += ../../engine/src ../../engine/src/audio
+INCLUDEPATH     += ../../engine/src ../../engine/audio/src
+win32: INCLUDEPATH += ../../hotplugmonitor/src
 DEPENDPATH      += ../../engine/src
 QMAKE_LIBDIR    += ../../engine/src
 LIBS            += -lqlcplusengine
@@ -81,6 +82,7 @@ HEADERS += aboutbox.h \
            inputoutputmanager.h \
            inputoutputpatcheditor.h \
            inputprofileeditor.h \
+           inputselectionwidget.h \
            knobwidget.h \
            palettegenerator.h \
            playbackslider.h \
@@ -146,6 +148,7 @@ HEADERS += virtualconsole/addvcbuttonmatrix.h \
            virtualconsole/vcsoloframeproperties.h \
            virtualconsole/vcspeeddial.h \
            virtualconsole/vcspeeddialfunction.h \
+           virtualconsole/vcspeeddialpreset.h \
            virtualconsole/vcspeeddialproperties.h \
            virtualconsole/vcwidget.h \
            virtualconsole/vcwidgetproperties.h \
@@ -154,6 +157,7 @@ HEADERS += virtualconsole/addvcbuttonmatrix.h \
            virtualconsole/vcxypadarea.h \
            virtualconsole/vcxypadfixture.h \
            virtualconsole/vcxypadfixtureeditor.h \
+           virtualconsole/vcxypadpreset.h \
            virtualconsole/vcxypadproperties.h \
            virtualconsole/virtualconsole.h
 
@@ -180,6 +184,7 @@ FORMS += aboutbox.ui \
          inputchanneleditor.ui \
          inputoutputpatcheditor.ui \
          inputprofileeditor.ui \
+         inputselectionwidget.ui \
          monitor/monitorbackgroundselection.ui \
          monitor/monitorfixturepropertieseditor.ui \
          positiontool.ui \
@@ -251,6 +256,7 @@ SOURCES += aboutbox.cpp \
            inputoutputmanager.cpp \
            inputoutputpatcheditor.cpp \
            inputprofileeditor.cpp \
+           inputselectionwidget.cpp \
            knobwidget.cpp \
            palettegenerator.cpp \
            playbackslider.cpp \
@@ -316,6 +322,7 @@ SOURCES += virtualconsole/addvcbuttonmatrix.cpp \
            virtualconsole/vcsoloframeproperties.cpp \
            virtualconsole/vcspeeddial.cpp \
            virtualconsole/vcspeeddialfunction.cpp \
+           virtualconsole/vcspeeddialpreset.cpp \
            virtualconsole/vcspeeddialproperties.cpp \
            virtualconsole/vcwidget.cpp \
            virtualconsole/vcwidgetproperties.cpp \
@@ -324,6 +331,7 @@ SOURCES += virtualconsole/addvcbuttonmatrix.cpp \
            virtualconsole/vcxypadarea.cpp \
            virtualconsole/vcxypadfixture.cpp \
            virtualconsole/vcxypadfixtureeditor.cpp \
+           virtualconsole/vcxypadpreset.cpp \
            virtualconsole/vcxypadproperties.cpp \
            virtualconsole/virtualconsole.cpp
 
@@ -347,7 +355,7 @@ TRANSLATIONS += qlcplus_ja_JP.ts
 macx {
     # This must be after "TARGET = " and before target installation so that
     # install_name_tool can be run before target installation
-    include(../../macx/nametool.pri)
+    include(../../platforms/macos/nametool.pri)
 }
 
 # Installation

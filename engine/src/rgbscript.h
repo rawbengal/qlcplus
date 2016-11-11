@@ -100,10 +100,10 @@ public:
     int acceptColors() const;
 
     /** @reimp */
-    bool loadXML(const QDomElement& root);
+    bool loadXML(QXmlStreamReader &root);
 
     /** @reimp */
-    bool saveXML(QDomDocument* Doc, QDomElement* mtx_root) const;
+    bool saveXML(QXmlStreamWriter *doc) const;
 
 private:
     int m_apiVersion;               //! The API version that the script uses

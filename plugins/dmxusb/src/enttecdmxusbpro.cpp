@@ -25,25 +25,16 @@
  * Initialization
  ****************************************************************************/
 
-EnttecDMXUSBPro::EnttecDMXUSBPro(const QString& serial, const QString& name, const QString &vendor,
-                                 quint32 outputLine, quint32 inputLine, quint32 id)
+EnttecDMXUSBPro::EnttecDMXUSBPro(DMXInterface *interface,
+                                 quint32 outputLine, quint32 inputLine)
     : QThread(NULL)
-    , DMXUSBWidget(serial, name, vendor, outputLine, id)
+    , DMXUSBWidget(interface, outputLine)
     , m_dmxKingMode(false)
     , m_running(false)
 {
     m_inputBaseLine = inputLine;
 
     setInputsNumber(1);
-
-// This never worked anyway. Just stick to the USB serial number
-/*
-    // Bypass rts setting by calling parent class' open method
-    if (DMXUSBWidget::open(outputID) == true)
-        extractSerial();
-
-    close(outputID);
-*/
 }
 
 EnttecDMXUSBPro::~EnttecDMXUSBPro()
@@ -129,7 +120,7 @@ bool EnttecDMXUSBPro::configureLine(ushort dmxLine, ushort midiLine)
         request.append(ENTTEC_PRO_END_OF_MSG); // Stop byte
 
         /* Write "Set API Key Request" message */
-        if (ftdi()->write(request) == false)
+        if (interface()->write(request) == false)
         {
             qWarning() << Q_FUNC_INFO << name() << "FTDI write filed (DMX2 port config)";
             return false;
@@ -148,7 +139,7 @@ bool EnttecDMXUSBPro::configureLine(ushort dmxLine, ushort midiLine)
         request.append(ENTTEC_PRO_END_OF_MSG); // Stop byte
 
         /* Write "Set Port Assignment Request" message */
-        if (ftdi()->write(request) == false)
+        if (interface()->write(request) == false)
         {
             qWarning() << Q_FUNC_INFO << name() << "FTDI write filed (DMX1 port config)";
             return false;
@@ -163,7 +154,7 @@ bool EnttecDMXUSBPro::open(quint32 line, bool input)
     if (DMXUSBWidget::open(line, input) == false)
         return close(line, input);
 
-    if (ftdi()->clearRts() == false)
+    if (interface()->clearRts() == false)
         return close(line, input);
 
     // specific port configuration are needed
@@ -190,6 +181,13 @@ bool EnttecDMXUSBPro::open(quint32 line, bool input)
     }
 
     return true;
+}
+
+bool EnttecDMXUSBPro::close(quint32 line, bool input)
+{
+    if (input == true)
+        stopThread();
+    return DMXUSBWidget::close(line, input);
 }
 
 /****************************************************************************
@@ -235,9 +233,9 @@ bool EnttecDMXUSBPro::extractSerial()
     request.append(ENTTEC_PRO_DMX_ZERO); // data length MSB
     request.append(ENTTEC_PRO_END_OF_MSG);
 
-    if (ftdi()->write(request) == true)
+    if (interface()->write(request) == true)
     {
-        QByteArray reply = ftdi()->read(9);
+        QByteArray reply = interface()->read(9);
 
         /* Reply message is:
            { 0x7E 0x0A 0x04 0x00 0xNN, 0xNN, 0xNN, 0xNN 0xE7 }
@@ -306,7 +304,7 @@ void EnttecDMXUSBPro::run()
         bool ok = false;
         bool midiMessage = false;
         // Skip bytes until we find the start of the next message
-        if ( (byte = ftdi()->readByte(&ok)) != ENTTEC_PRO_START_OF_MSG)
+        if ((byte = interface()->readByte(&ok)) != ENTTEC_PRO_START_OF_MSG)
         {
             // If nothing was read, sleep for a while
             if (ok == false)
@@ -315,7 +313,7 @@ void EnttecDMXUSBPro::run()
         }
 
         // Check that the message is a "DMX receive packet"
-        byte = ftdi()->readByte();
+        byte = interface()->readByte();
         if (byte == ENTTEC_PRO_MIDI_IN_MSG)
         {
             midiMessage = true;
@@ -327,29 +325,31 @@ void EnttecDMXUSBPro::run()
         }
 
         // Get payload length
-        dataLength = (ushort) ftdi()->readByte() | ((ushort) ftdi()->readByte() << 8);
-        qDebug() << "Packet data lenght:" << dataLength;
+        dataLength = (ushort) interface()->readByte() | ((ushort) interface()->readByte() << 8);
+        //qDebug() << "Packet data length:" << dataLength;
 
         if (midiMessage == false)
         {
             // Check status bytes
-            byte = ftdi()->readByte();
+            byte = interface()->readByte();
             if (byte & char(0x01))
                 qWarning() << Q_FUNC_INFO << "Widget receive queue overflowed";
             else if (byte & char(0x02))
                 qWarning() << Q_FUNC_INFO << "Widget receive overrun occurred";
 
             // Check DMX startcode
-            byte = ftdi()->readByte();
+            byte = interface()->readByte();
             if (byte != char(0))
                 qWarning() << Q_FUNC_INFO << "Non-standard DMX startcode received:" << (uchar) byte;
+            dataLength -= 2;
         }
 
-        // Read payload bytes
-        ushort i = 0;
-        for (i = 0; i < dataLength; i++)
+        // Read the whole payload
+        QByteArray payload = interface()->read(dataLength);
+
+        for (ushort i = 0; i < payload.length(); i++)
         {
-            byte = ftdi()->readByte();
+            byte = uchar(payload.at(i));
 
             if (midiMessage == false)
             {
@@ -358,7 +358,7 @@ void EnttecDMXUSBPro::run()
                     // Stop when the end of message is received
                     break;
                 }
-                else if (byte != (uchar) m_universe[i])
+                else if (i < 512 && byte != (uchar) m_universe[i])
                 {
                     // Store and emit changed values
                     m_universe[i] = byte;
@@ -445,6 +445,7 @@ bool EnttecDMXUSBPro::writeUniverse(quint32 universe, quint32 output, const QByt
 
             if (QLCMIDIProtocol::feedbackToMidi(i + 1, data.at(i),
                                                 universe, // MIDI output channel is QLC+ universe
+                                                true, // send Note OFF
                                                 &cmd, &data1, &data2) == true)
             {
                 qDebug() << Q_FUNC_INFO << "cmd:" << cmd << "data1:" << data1 << "data2:" << data2;
@@ -452,7 +453,7 @@ bool EnttecDMXUSBPro::writeUniverse(quint32 universe, quint32 output, const QByt
                 request.append(data1);
                 request.append(data2);
                 request.append(ENTTEC_PRO_END_OF_MSG); // Stop byte
-                if (ftdi()->write(request) == false)
+                if (interface()->write(request) == false)
                 {
                     qWarning() << Q_FUNC_INFO << name() << "will not accept MIDI data";
                     return false;
@@ -485,7 +486,7 @@ bool EnttecDMXUSBPro::writeUniverse(quint32 universe, quint32 output, const QByt
         request.append(ENTTEC_PRO_END_OF_MSG); // Stop byte
 
         /* Write "Output Only Send DMX Packet Request" message */
-        if (ftdi()->write(request) == false)
+        if (interface()->write(request) == false)
         {
             qWarning() << Q_FUNC_INFO << name() << "will not accept DMX data";
             return false;

@@ -25,11 +25,15 @@
 
 class QLCFixtureMode;
 class QLCFixtureDef;
+class TreeModel;
 class Doc;
 
 class FixtureBrowser : public QObject
 {
     Q_OBJECT
+
+    Q_PROPERTY(QString searchString READ searchString WRITE setSearchString NOTIFY searchStringChanged)
+    Q_PROPERTY(QVariant searchTreeModel READ searchTreeModel NOTIFY searchListChanged)
 
 public:
     FixtureBrowser(QQuickView *view, Doc *doc, QObject *parent = 0);
@@ -39,18 +43,41 @@ public:
     Q_INVOKABLE QStringList models(QString manufacturer);
     Q_INVOKABLE QStringList modes(QString manufacturer, QString model);
     Q_INVOKABLE int modeChannels(QString modeName);
-    Q_INVOKABLE int availableChannel(int uniIdx, int channels, int requested);
+
+    /** Check if the group of fixtures with the specified $uniIdx, $channels, $quantity and $gap
+     *  can be created in the $requested DMX address.
+     *  Returns:
+     *  > $requested if the $requested address is available
+     *  > the first available address if $requested is not available
+     *  > -1 in case all the checks have failed
+     */
+    Q_INVOKABLE int availableChannel(quint32 uniIdx, int channels, int quantity, int gap, int requested);
+
+    /** Check if a Fixture with $fixtureID can be moved to the $requested DMX address */
+    Q_INVOKABLE int availableChannel(quint32 fixtureID, int requested);
+
+    /** Get/Set the fixture search filter */
+    QString searchString() const;
+    void setSearchString(QString searchString);
+
+    QVariant searchTreeModel() const;
 
 signals:
     void modeChanged();
     void modeChannelsChanged();
+    void searchStringChanged(QString searchString);
+    void searchListChanged();
 
-protected slots:
+private:
+    void updateSearchTree();
 
 private:
     Doc *m_doc;
     QQuickView *m_view;
     QLCFixtureDef *m_definition;
+    /** Reference to the tree model used for searches */
+    TreeModel *m_searchTree;
+    QString m_searchString;
 };
 
 #endif // FIXTUREBROWSER_H

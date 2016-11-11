@@ -1,6 +1,7 @@
 TEMPLATE = subdirs
 CONFIG  += ordered
+SUBDIRS += audio
 SUBDIRS += src
-!android {
+!android:!ios {
   SUBDIRS += test
 }

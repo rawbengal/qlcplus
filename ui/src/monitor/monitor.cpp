@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   monitor.cpp
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,6 +18,7 @@
   limitations under the License.
 */
 
+#include <QDesktopWidget>
 #include <QApplication>
 #include <QActionGroup>
 #include <QFontDialog>
@@ -25,13 +27,14 @@
 #include <QByteArray>
 #include <QComboBox>
 #include <QSplitter>
+#include <QSettings>
 #include <QToolBar>
 #include <QSpinBox>
 #include <QAction>
 #include <QLabel>
+#include <QDebug>
 #include <QFont>
 #include <QIcon>
-#include <QtXml>
 
 #include "monitorfixturepropertieseditor.h"
 #include "monitorbackgroundselection.h"
@@ -225,10 +228,27 @@ void Monitor::fillGraphicsView()
 {
     m_graphicsView->clearFixtures();
 
+    m_gridWSpin->blockSignals(true);
+    m_gridHSpin->blockSignals(true);
+    m_unitsCombo->blockSignals(true);
+
     if (m_props->gridUnits() == MonitorProperties::Meters)
+    {
         m_graphicsView->setGridMetrics(1000.0);
+        m_unitsCombo->setCurrentIndex(0);
+    }
     else // m_props->gridUnits() == MonitorProperties::Feet
+    {
         m_graphicsView->setGridMetrics(304.8);
+        m_unitsCombo->setCurrentIndex(1);
+    }
+
+    m_gridWSpin->setValue(m_props->gridSize().width());
+    m_gridHSpin->setValue(m_props->gridSize().height());
+    m_gridWSpin->blockSignals(false);
+    m_gridHSpin->blockSignals(false);
+    m_unitsCombo->blockSignals(false);
+
     m_graphicsView->setGridSize(m_props->gridSize());
     m_graphicsView->setBackgroundImage(m_props->commonBackgroundImage());
     m_graphicsView->showFixturesLabels(m_props->labelsVisible());
@@ -321,8 +341,11 @@ void Monitor::createAndShow(QWidget* parent, Doc* doc)
             window->restoreGeometry(var.toByteArray());
         else
         {
-            window->resize(800, 600);
-            window->move(50, 50);
+            QRect rect = qApp->desktop()->screenGeometry();
+            int rWd = rect.width() / 4;
+            int rHd = rect.height() / 4;
+            window->resize(rWd * 3, rHd * 3);
+            window->move(rWd / 2, rHd / 2);
         }
         AppUtil::ensureWidgetIsVisible(window);
     }
@@ -433,6 +456,21 @@ void Monitor::initDMXToolbar()
     connect(uniCombo, SIGNAL(currentIndexChanged(int)),
             this, SLOT(slotUniverseSelected(int)));
     m_DMXToolBar->addWidget(uniCombo);
+
+    if (QLCFile::isRaspberry() == true)
+    {
+        QWidget* widget = new QWidget(this);
+        widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        m_DMXToolBar->addWidget(widget);
+
+        action = m_DMXToolBar->addAction(tr("Close"));
+        action->setToolTip(tr("Close this window"));
+        action->setIcon(QIcon(":/delete.png"));
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(close()));
+        m_DMXToolBar->addAction(action);
+        group->addAction(action);
+    }
 }
 
 void Monitor::initGraphicsToolbar()
@@ -499,6 +537,20 @@ void Monitor::initGraphicsToolbar()
     m_labelsAction->setCheckable(true);
     m_labelsAction->setChecked(m_props->labelsVisible());
     connect(m_labelsAction, SIGNAL(triggered(bool)), this, SLOT(slotShowLabels(bool)));
+
+    if (QLCFile::isRaspberry() == true)
+    {
+        QWidget* widget = new QWidget(this);
+        widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        m_graphicsToolBar->addWidget(widget);
+
+        action = m_graphicsToolBar->addAction(tr("Close"));
+        action->setToolTip(tr("Close this window"));
+        action->setIcon(QIcon(":/delete.png"));
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(close()));
+        m_graphicsToolBar->addAction(action);
+    }
 }
 
 void Monitor::slotChooseFont()

@@ -18,15 +18,16 @@
 */
 
 import QtQuick 2.0
+import "."
 
 Rectangle
 {
     id: audioItem
     width: parent.width
-    height: 120
+    height: UISettings.bigItemHeight
     color: isSelected ? "#2D444E" : "transparent"
     border.width: 2
-    border.color: isSelected ? "yellow" : "transparent"
+    border.color: isSelected ? UISettings.selection : "transparent"
 
     property int wireBoxWidth: (audioItem.width - audioBox.width) / 8 // one quarter of a audioItem side
     property bool isSelected: false
@@ -57,8 +58,8 @@ Rectangle
     {
         id: audioBox
         anchors.centerIn: parent
-        width: 200
-        height: 100
+        width: UISettings.bigItemHeight * 1.2
+        height: UISettings.bigItemHeight * 0.8
         radius: 5
         //color: "#1C2255"
         gradient: Gradient
@@ -76,7 +77,8 @@ Rectangle
             width: parent.width
             label: qsTr("Global Audio")
             wrapText: true
-            textAlign: Text.AlignHCenter
+            textHAlign: Text.AlignHCenter
+            fontSize: UISettings.textSizeDefault
         }
     }
 
@@ -121,7 +123,7 @@ Rectangle
         width: parent.width
         height: 2
         y: parent.height - 2
-        color: isSelected ? "yellow" : "#666"
+        color: isSelected ? UISettings.selection : "#666"
     }
 }
 

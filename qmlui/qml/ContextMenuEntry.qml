@@ -20,18 +20,21 @@
 import QtQuick 2.2
 import QtQuick.Controls 1.2
 
+import "."
+
 Rectangle
 {
     id: baseIconEntry
-    width: (parent.width > imgSize + textBox.width + 15) ? parent.width: imgSize + textBox.width + 15
+    width: parent ? (parent.width > itemWidth) ? parent.width : itemWidth : 400
     height: imgSize + 4
 
-    property int imgSize: 40
+    property int imgSize: UISettings.iconSizeDefault
     property string imgSource: ""
     property string entryText: ""
     property color bgColor: "transparent"
-    property color hoverColor: "#0978FF"
+    property color hoverColor: UISettings.highlight
     property color pressedColor: "#054A9E"
+    property int itemWidth: imgSize + (textBox ? textBox.width : 100) + 15
 
     signal clicked
     signal entered
@@ -40,19 +43,6 @@ Rectangle
     color: "transparent"
     border.color: "#1D1D1D"
     border.width: 1
-
-    Gradient
-    {
-        id: hoverGradient
-        GradientStop { position: 0 ; color: "#444" }
-        GradientStop { position: 1 ; color: "#171717" }
-    }
-    Gradient
-    {
-        id: pressGradient
-        GradientStop { position: 0 ; color: "#6BA6FF" }
-        GradientStop { position: 1 ; color: "#171717" }
-    }
 
     Image
     {
@@ -72,7 +62,7 @@ Rectangle
         y: 0
         label: entryText
         height: baseIconEntry.height
-        fontSize: 12
+        fontSize: UISettings.textSizeDefault
         fontBold: true
     }
 

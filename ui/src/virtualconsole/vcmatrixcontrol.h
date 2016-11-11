@@ -20,13 +20,15 @@
 #ifndef VCMATRIXCONTROL_H
 #define VCMATRIXCONTROL_H
 
+#include <QSharedPointer>
 #include <QKeySequence>
 #include <QColor>
+#include <QHash>
 
 #include "qlcinputsource.h"
 
-class QDomDocument;
-class QDomElement;
+class QXmlStreamReader;
+class QXmlStreamWriter;
 
 /** @addtogroup ui_vc_widgets
  * @{
@@ -92,15 +94,16 @@ protected:
 public:
     bool operator<(VCMatrixControl const& right) const;
     static bool compare(VCMatrixControl const* left, VCMatrixControl const* right);
+
     /************************************************************************
      * Load & Save
      ***********************************************************************/
 public:
     /** Load properties and contents from an XML tree */
-    bool loadXML(const QDomElement& root);
+    bool loadXML(QXmlStreamReader &root);
 
     /** Save properties and contents to an XML document */
-    bool saveXML(QDomDocument* doc, QDomElement* mtx_root);
+    bool saveXML(QXmlStreamWriter *doc);
 
 public:
     /** Preset unique ID

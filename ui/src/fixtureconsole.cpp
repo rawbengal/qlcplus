@@ -21,7 +21,6 @@
 #include <QDebug>
 #include <QIcon>
 #include <QList>
-#include <QtXml>
 
 #include "qlcfile.h"
 
@@ -70,6 +69,19 @@ FixtureConsole::FixtureConsole(QWidget* parent, Doc* doc, GroupType type, bool s
 
 FixtureConsole::~FixtureConsole()
 {
+}
+
+void FixtureConsole::enableResetButton(bool enable)
+{
+    QListIterator <ConsoleChannel*> it(m_channels);
+    while (it.hasNext() == true)
+    {
+        ConsoleChannel* cc = it.next();
+        Q_ASSERT(cc != NULL);
+        cc->showResetButton(enable);
+        connect(cc, SIGNAL(resetRequest(quint32,quint32)),
+                this, SIGNAL(resetRequest(quint32,quint32)));
+    }
 }
 
 void FixtureConsole::showEvent(QShowEvent *)

@@ -20,83 +20,103 @@
     </message>
     <message>
         <location filename="configuree131.ui" line="47"/>
+        <source>Multicast</source>
+        <translation>Multicast</translation>
+    </message>
+    <message>
+        <location filename="configuree131.ui" line="52"/>
         <source>IP Address</source>
         <translation>Direcció IP</translation>
     </message>
     <message>
-        <location filename="configuree131.ui" line="52"/>
+        <location filename="configuree131.ui" line="57"/>
+        <source>Port</source>
+        <translation>Port</translation>
+    </message>
+    <message>
+        <location filename="configuree131.ui" line="62"/>
         <source>E1.31 Universe</source>
         <translation>Univers E1.31</translation>
     </message>
     <message>
-        <location filename="configuree131.ui" line="57"/>
+        <location filename="configuree131.ui" line="67"/>
         <source>Transmission Mode</source>
         <translation>Mode de transmissió</translation>
     </message>
     <message>
-        <source>Network Mapping</source>
-        <translation type="obsolete">Mapatge de Xarxa</translation>
-    </message>
-    <message>
-        <source>Network</source>
-        <translation type="obsolete">Xarxa</translation>
+        <location filename="configuree131.ui" line="72"/>
+        <source>Priority</source>
+        <translation>Prioritat</translation>
     </message>
     <message>
         <location filename="configuree131.ui" line="42"/>
         <source>Universe</source>
-        <translation>Uninvers</translation>
+        <translation>Univers</translation>
     </message>
     <message>
-        <location filename="configuree131.cpp" line="75"/>
+        <location filename="configuree131.cpp" line="86"/>
         <source>Inputs</source>
         <translation>Entrades</translation>
     </message>
     <message>
-        <location filename="configuree131.cpp" line="81"/>
+        <location filename="configuree131.cpp" line="92"/>
         <source>Outputs</source>
         <translation>Sortides</translation>
     </message>
     <message>
-        <location filename="configuree131.cpp" line="121"/>
+        <location filename="configuree131.cpp" line="176"/>
         <source>Full</source>
         <translation>Complet</translation>
     </message>
     <message>
-        <location filename="configuree131.cpp" line="122"/>
+        <location filename="configuree131.cpp" line="177"/>
         <source>Partial</source>
         <translation>Parcial</translation>
+    </message>
+    <message>
+        <location filename="configuree131.cpp" line="185"/>
+        <source>%1 - min, %2 - default, %3 - max</source>
+        <translation>%1 - min, %2 - defecte, %3 . max</translation>
+    </message>
+    <message>
+        <location filename="configuree131.cpp" line="223"/>
+        <source>Invalid IP</source>
+        <translation>IP invàlida</translation>
+    </message>
+    <message>
+        <location filename="configuree131.cpp" line="223"/>
+        <source>%1 is not a valid IP.
+Please fix it before confirming.</source>
+        <translation>%1 no es una IP vàlida.
+Si us plau arreglar-ho abans de continuar.</translation>
     </message>
 </context>
 <context>
     <name>E131Plugin</name>
     <message>
-        <location filename="e131plugin.cpp" line="75"/>
+        <location filename="e131plugin.cpp" line="78"/>
         <source>This plugin provides DMX output for devices supporting the E1.31 communication protocol.</source>
         <translation>Aquest plugin proveeix sortida DMX per dispositius que suporten el protocol de comunicació E1.31.</translation>
     </message>
     <message>
-        <source>%1: %2</source>
-        <translation type="obsolete">%1: %2</translation>
-    </message>
-    <message>
-        <location filename="e131plugin.cpp" line="108"/>
+        <location filename="e131plugin.cpp" line="110"/>
         <source>Output</source>
         <translation>Sortida</translation>
     </message>
     <message>
-        <location filename="e131plugin.cpp" line="112"/>
+        <location filename="e131plugin.cpp" line="114"/>
         <location filename="e131plugin.cpp" line="256"/>
         <source>Status: Not open</source>
         <translation>Estat: No obert</translation>
     </message>
     <message>
-        <location filename="e131plugin.cpp" line="115"/>
+        <location filename="e131plugin.cpp" line="117"/>
         <location filename="e131plugin.cpp" line="259"/>
         <source>Status: Open</source>
         <translation>Estat: Obert</translation>
     </message>
     <message>
-        <location filename="e131plugin.cpp" line="117"/>
+        <location filename="e131plugin.cpp" line="119"/>
         <source>Packets sent: </source>
         <translation>Paquets enviats:</translation>
     </message>

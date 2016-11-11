@@ -20,23 +20,37 @@
 #ifndef OSCCONTROLLER_H
 #define OSCCONTROLLER_H
 
-#include "oscpacketizer.h"
-
+#if defined(ANDROID)
+#include <QNetworkInterface>
 #include <QScopedPointer>
+#include <QSharedPointer>
+#include <QHostAddress>
+#include <QUdpSocket>
+#else
 #include <QtNetwork>
-#include <QObject>
+#endif
+#include <QMutex>
+#include <QTimer>
 #include <QHash>
 #include <QMap>
 
+#include "oscpacketizer.h"
+
 typedef struct
 {
-    QUdpSocket *inputSocket;
+    QSharedPointer<QUdpSocket> inputSocket;
+
     quint16 inputPort;
+
     QHostAddress feedbackAddress;
     quint16 feedbackPort;
+
     QHostAddress outputAddress;
     quint16 outputPort;
-    uchar multiPart;
+
+    // cache of the OSC paths with multiple values, used to correctly
+    // handle the flow of input and feedback values
+    QHash<QString, QByteArray> multipartCache;
     int type;
 } UniverseInfo;
 
@@ -56,7 +70,7 @@ public:
     ~OSCController();
 
     /** Return the controller IP address */
-    QString getNetworkIP();
+    QHostAddress getNetworkIP() const;
 
     /** Add a universe to the map of this controller */
     void addUniverse(quint32 universe, Type type);
@@ -65,41 +79,46 @@ public:
     void removeUniverse(quint32 universe, Type type);
 
     /** Set a specific port to be bound to receive data from the
-     *  given universe */
-    void setInputPort(quint32 universe, quint16 port);
+     *  given universe.
+     *  Return true if this restores default input port */
+    bool setInputPort(quint32 universe, quint16 port);
 
-    /** Set a specific feedback IP address for the given QLC+ universe */
-    void setFeedbackIPAddress(quint32 universe, QString address);
+    /** Set a specific feedback IP address for the given QLC+ universe.
+     *  Return true if this restores default feedback IP address */
+    bool setFeedbackIPAddress(quint32 universe, QString address);
 
     /** Set a specific port where to send feedback packets
-     *  for the given universe */
-    void setFeedbackPort(quint32 universe, quint16 port);
+     *  for the given universe.
+     *  Return true if this restores default feedback port */
+    bool setFeedbackPort(quint32 universe, quint16 port);
 
-    /** Set a specific output IP address for the given QLC+ universe */
-    void setOutputIPAddress(quint32 universe, QString address);
+    /** Set a specific output IP address for the given QLC+ universe.
+     *  Return true if this restores default output IP address */
+    bool setOutputIPAddress(quint32 universe, QString address);
 
     /** Set a specific port where to send outgoing packets
-     *  for the given universe */
-    void setOutputPort(quint32 universe, quint16 port);
+     *  for the given universe.
+     *  Return true if this restores default output port */
+    bool setOutputPort(quint32 universe, quint16 port);
 
     /** Return the list of the universes handled by
      *  this controller */
-    QList<quint32>universesList();
+    QList<quint32> universesList() const;
 
     /** Return the specific information for the given universe */
-    UniverseInfo *getUniverseInfo(quint32 universe);
+    UniverseInfo* getUniverseInfo(quint32 universe);
 
     /** Return the global type of this controller */
-    Type type();
+    Type type() const;
 
     /** Return the plugin line associated to this controller */
-    quint32 line();
+    quint32 line() const;
 
     /** Get the number of packets sent by this controller */
-    quint64 getPacketSentNumber();
+    quint64 getPacketSentNumber() const;
 
     /** Get the number of packets received by this controller */
-    quint64 getPacketReceivedNumber();
+    quint64 getPacketReceivedNumber() const;
 
     /** Send DMX data to a specific universe */
     void sendDmx(const quint32 universe, const QByteArray& dmxData);
@@ -107,10 +126,16 @@ public:
     /** Send a feedback using the specified path and value */
     void sendFeedback(const quint32 universe, quint32 channel, uchar value, const QString &key);
 
+private:
+    QSharedPointer<QUdpSocket> getInputSocket(quint16 port);
+
 protected:
     /** Calculate a 16bit unsigned hash as a unique representation
      *  of a OSC path. If new, the hash is added to the hash map (m_hashMap) */
     quint16 getHash(QString path);
+
+private:
+    void handlePacket(QUdpSocket* socket, QByteArray const& datagram, QHostAddress const& senderAddress);
 
 private slots:
     /** Async event raised when new packets have been received */
@@ -130,7 +155,7 @@ private:
     quint32 m_line;
 
     /** The UDP socket used to output OSC packets */
-    QUdpSocket *m_outputSocket;
+    QSharedPointer<QUdpSocket> m_outputSocket;
 
     /** Helper class used to create or parse OSC packets */
     QScopedPointer<OSCPacketizer> m_packetizer;
@@ -142,10 +167,6 @@ private:
     /** Map of the QLC+ universes transmitted/received by this
      *  controller, with the related, specific parameters */
     QMap<quint32, UniverseInfo> m_universeMap;
-
-    /** Map of the relation between input ports and QLC+ universes,
-     *  since a single controller can handle input for several universes */
-    QMap<quint16, quint32>m_portsMap;
 
     /** Mutex to handle the change of output IP address or in general
      *  variables that could be used to transmit/receive data */

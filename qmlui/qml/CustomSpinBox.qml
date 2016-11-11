@@ -20,13 +20,15 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.3
+import "."
 
 SpinBox
 {
     id: spinbox
-    font.family: "RobotoCondensed"
-    font.pointSize: 14
+    font.family: UISettings.robotoFontName
+    font.pixelSize: UISettings.textSizeDefault
     width: 70
+    implicitHeight: UISettings.listItemHeight
 
     property bool showControls: true
 
@@ -45,13 +47,13 @@ SpinBox
             background:
                 Rectangle
                 {
-                    color: "#333"
+                    color: UISettings.bgMedium
                     border.color: "#222"
                     radius: 3
                 }
-            textColor: "white"
+            textColor: UISettings.fgMain
 
-            property int controlWidth: showControls ? Math.min(35, spinbox.width / 3) : 0
+            property int controlWidth: showControls ? Math.min(UISettings.iconSizeMedium, spinbox.width / 3) : 0
 
             incrementControl:
                 Rectangle

@@ -43,9 +43,13 @@ macx:SOURCES += macx/hidapi.cpp macx/hidosxjoystick.cpp
 
 unix:!macx {
     # Rules to make FX5 DMX devices readable & writable by normal users
-    udev.path  = /etc/udev/rules.d
+    udev.path  = $$UDEVRULESDIR
     udev.files = linux/z65-fx5-hid.rules
     INSTALLS  += udev
+
+    metainfo.path   = $$INSTALLROOT/share/appdata/
+    metainfo.files += linux/qlcplus-hid.metainfo.xml
+    INSTALLS       += metainfo
 }
 
 TRANSLATIONS += HID_fi_FI.ts
@@ -61,7 +65,7 @@ TRANSLATIONS += HID_ja_JP.ts
 
 # This must be after "TARGET = " and before target installation so that
 # install_name_tool can be run before target installation
-macx:include(../../macx/nametool.pri)
+macx:include(../../platforms/macos/nametool.pri)
 
 target.path = $$INSTALLROOT/$$PLUGINDIR
 INSTALLS   += target

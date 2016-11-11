@@ -19,6 +19,7 @@
 
 import QtQuick 2.2
 import com.qlcplus.classes 1.0
+import "."
 
 Rectangle
 {
@@ -54,7 +55,7 @@ Rectangle
         {
             color: "#111"
             width: parent.width
-            height: 20
+            height: UISettings.listItemHeight * 0.75
             clip: true
 
             RobotoText
@@ -62,7 +63,7 @@ Rectangle
                 anchors.verticalCenter: parent.verticalCenter
                 x: 2
                 label: fixtureObj ? fixtureObj.name : ""
-                fontSize: 15
+                fontSize: UISettings.textSizeDefault
             }
         }
         Row
@@ -74,27 +75,29 @@ Rectangle
                 model: fixtureObj ? fixtureObj.channels : null
                 delegate:
                     Rectangle
-                {
+                    {
                         color: "transparent"
-                        width: 30
-                        height: 50
+                        width: UISettings.iconSizeMedium
+                        height: fxChIcon.height + fxChVal.height
 
                         property string dmxValue: "0"
 
                         Image
                         {
-                            width: 30
-                            height: 30
+                            id: fxChIcon
+                            width: parent.width
+                            height: width
                             sourceSize: Qt.size(width, height)
                             source: fixtureObj ? fixtureManager.channelIcon(fixtureObj.id, index) : ""
                         }
                         RobotoText
                         {
+                            id: fxChVal
                             anchors.horizontalCenter: parent.horizontalCenter
-                            y: 30
+                            y: fxChIcon.height
                             //width: 30
-                            height: 20
-                            fontSize: 11
+                            height: UISettings.listItemHeight * 0.75
+                            fontSize: UISettings.textSizeDefault
                             labelColor: "black"
                             label: dmxValue
                         }
@@ -150,7 +153,7 @@ Rectangle
             item.fixtureObj = fixtureObj
             item.isSelected = isSelected
             item.values = values
-            item.height = 220
+            item.height = UISettings.bigItemHeight * 2.3
         }
         Connections
         {
@@ -173,6 +176,11 @@ Rectangle
                      //console.log("2- Item width: " + w + ", height: " + h)
                  }
              }
+             onValueChanged:
+             {
+                 //console.log("Channel " + chIndex + " value changed " + value)
+                 channelsRpt.itemAt(chIndex).dmxValue = value
+             }
         }
     }
 
@@ -181,7 +189,7 @@ Rectangle
         anchors.fill: parent
         z: 5
         color: "transparent"
-        border.width: 1
-        border.color: isSelected ? "yellow" : "transparent"
+        border.width: isSelected ? 2 : 1
+        border.color: isSelected ? UISettings.selection : "transparent"
     }
 }

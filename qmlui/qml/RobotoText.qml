@@ -18,21 +18,24 @@
 */
 
 import QtQuick 2.0
+import "."
 
 Rectangle
 {
+    id: rtRoot
     width: wrapText ? 100 : textBox.width
-    height: 40
+    height: UISettings.iconSizeDefault
 
     color: "transparent"
     clip: true
 
-    property string label
-    property color labelColor: "white"
-    property int fontSize: 16
+    property string label: ""
+    property color labelColor: UISettings.fgMain
+    property real fontSize: UISettings.textSizeDefault
     property bool fontBold: false
     property bool wrapText: false
-    property int textAlign: Text.AlignLeft
+    property int textHAlign: Text.AlignLeft
+    property int textVAlign: wrapText ? Text.AlignVCenter : Text.AlignTop
 
     Text
     {
@@ -41,13 +44,13 @@ Rectangle
         height: wrapText ? parent.height : Text.paintedHeight
         anchors.verticalCenter: parent.verticalCenter
         text: label
-        font.family: "RobotoCondensed"
-        font.pointSize: fontSize
+        font.family: UISettings.robotoFontName
+        font.pixelSize: fontSize ? fontSize : 12
         font.bold: fontBold
         color: labelColor
         wrapMode: wrapText ? Text.Wrap : Text.NoWrap
-        horizontalAlignment: textAlign
-        verticalAlignment: wrapText ? Text.AlignVCenter : Text.AlignTop
+        horizontalAlignment: textHAlign
+        verticalAlignment: textVAlign
     }
 }
 

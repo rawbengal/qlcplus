@@ -40,39 +40,26 @@
         <translation>Ausgangsport</translation>
     </message>
     <message>
-        <source>Output address:</source>
-        <translation type="obsolete">Ausgangsadresse:</translation>
-    </message>
-    <message>
-        <source>Input port:</source>
-        <oldsource>Port:</oldsource>
-        <translation type="obsolete">Eingangsport:</translation>
-    </message>
-    <message>
-        <source>OSC Network 2</source>
-        <translation type="obsolete">OSC-Netzwerk 2</translation>
-    </message>
-    <message>
-        <source>OSC Network 1</source>
-        <translation type="obsolete">OSC-Netzwerk 1</translation>
-    </message>
-    <message>
-        <source>OSC Network 3</source>
-        <translation type="obsolete">OSC-Netzwerk 3</translation>
-    </message>
-    <message>
-        <source>OSC Network 4</source>
-        <translation type="obsolete">OSC-Netzwerk 4</translation>
-    </message>
-    <message>
-        <location filename="configureosc.cpp" line="75"/>
+        <location filename="configureosc.cpp" line="76"/>
         <source>Inputs</source>
         <translation>Eingänge</translation>
     </message>
     <message>
-        <location filename="configureosc.cpp" line="81"/>
+        <location filename="configureosc.cpp" line="82"/>
         <source>Outputs</source>
         <translation>Ausgänge</translation>
+    </message>
+    <message>
+        <location filename="configureosc.cpp" line="168"/>
+        <source>Invalid IP</source>
+        <translation>Ungültige IP</translation>
+    </message>
+    <message>
+        <location filename="configureosc.cpp" line="168"/>
+        <source>%1 is not a valid IP.
+Please fix it before confirming.</source>
+        <translation>%1 ist keine gültige IP.
+Bitte vor Bestätigung korrigieren.</translation>
     </message>
 </context>
 <context>
@@ -105,26 +92,9 @@
         <translation>Pakete empfangen:</translation>
     </message>
     <message>
-        <source>OSC Network</source>
-        <translation type="obsolete">OSC-Netzwerk</translation>
-    </message>
-    <message>
         <location filename="oscplugin.cpp" line="109"/>
         <source>Output</source>
         <translation>Ausgang</translation>
-    </message>
-    <message>
-        <source>Status: Not ready</source>
-        <oldsource>Status: Not open</oldsource>
-        <translation type="obsolete">Nicht geöffnet</translation>
-    </message>
-    <message>
-        <source>Address: </source>
-        <translation type="obsolete">Adresse:</translation>
-    </message>
-    <message>
-        <source>Status: Ready</source>
-        <translation type="obsolete">Status: Bereit</translation>
     </message>
     <message>
         <location filename="oscplugin.cpp" line="253"/>

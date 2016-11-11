@@ -40,38 +40,26 @@
         <translation>Výstupní port</translation>
     </message>
     <message>
-        <source>Output address:</source>
-        <translation type="obsolete">Adresa výstupu:</translation>
-    </message>
-    <message>
-        <source>Input port:</source>
-        <translation type="obsolete">Vstupní port:</translation>
-    </message>
-    <message>
-        <source>OSC Network 2</source>
-        <translation type="obsolete">OSC Síť 2</translation>
-    </message>
-    <message>
-        <source>OSC Network 1</source>
-        <translation type="obsolete">OSC Síť 1</translation>
-    </message>
-    <message>
-        <source>OSC Network 3</source>
-        <translation type="obsolete">OSC Síť 3</translation>
-    </message>
-    <message>
-        <source>OSC Network 4</source>
-        <translation type="obsolete">OSC Síť 4</translation>
-    </message>
-    <message>
-        <location filename="configureosc.cpp" line="75"/>
+        <location filename="configureosc.cpp" line="76"/>
         <source>Inputs</source>
         <translation>Vstupy</translation>
     </message>
     <message>
-        <location filename="configureosc.cpp" line="81"/>
+        <location filename="configureosc.cpp" line="82"/>
         <source>Outputs</source>
         <translation>Výstupy</translation>
+    </message>
+    <message>
+        <location filename="configureosc.cpp" line="168"/>
+        <source>Invalid IP</source>
+        <translation>Neplatná IP adresa</translation>
+    </message>
+    <message>
+        <location filename="configureosc.cpp" line="168"/>
+        <source>%1 is not a valid IP.
+Please fix it before confirming.</source>
+        <translation>%1  není platná IP adresa.
+Prosím opravte zadání před potvrzením.</translation>
     </message>
 </context>
 <context>
@@ -104,25 +92,9 @@
         <translation>Přijatých paketů:</translation>
     </message>
     <message>
-        <source>OSC Network</source>
-        <translation type="obsolete">OSC Síť</translation>
-    </message>
-    <message>
         <location filename="oscplugin.cpp" line="109"/>
         <source>Output</source>
         <translation>Výstup</translation>
-    </message>
-    <message>
-        <source>Status: Not ready</source>
-        <translation type="obsolete">Stav: Nepřipraveno</translation>
-    </message>
-    <message>
-        <source>Address: </source>
-        <translation type="obsolete">Adresa:</translation>
-    </message>
-    <message>
-        <source>Status: Ready</source>
-        <translation type="obsolete">Stav: Připraveno</translation>
     </message>
     <message>
         <location filename="oscplugin.cpp" line="253"/>

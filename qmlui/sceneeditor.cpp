@@ -26,16 +26,26 @@
 #include "doc.h"
 
 SceneEditor::SceneEditor(QQuickView *view, Doc *doc, QObject *parent)
-    : QObject(parent)
-    , m_view(view)
-    , m_doc(doc)
+    : FunctionEditor(view, doc, parent)
     , m_scene(NULL)
+    , m_sceneConsole(NULL)
     , m_source(NULL)
 {
+    m_view->rootContext()->setContextProperty("sceneEditor", this);
     m_source = new GenericDMXSource(m_doc);
 }
 
-void SceneEditor::setSceneID(quint32 id)
+SceneEditor::~SceneEditor()
+{
+    m_view->rootContext()->setContextProperty("sceneEditor", NULL);
+    QQuickItem *bottomPanel = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("bottomPanelItem"));
+    if (bottomPanel != NULL)
+        bottomPanel->setProperty("visible", false);
+
+    delete m_source;
+}
+
+void SceneEditor::setFunctionID(quint32 id)
 {
     QQuickItem *bottomPanel = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("bottomPanelItem"));
 
@@ -43,8 +53,9 @@ void SceneEditor::setSceneID(quint32 id)
     {
         m_scene = NULL;
         m_source->unsetAll();
-        //m_source->setOutputEnabled(false);
+        m_source->setOutputEnabled(false);
         m_fixtures.clear();
+        m_fixtureIDs.clear();
         if (bottomPanel != NULL)
             bottomPanel->setProperty("visible", false);
         return;
@@ -57,14 +68,7 @@ void SceneEditor::setSceneID(quint32 id)
         bottomPanel->setProperty("visible", true);
         bottomPanel->setProperty("editorSource", "qrc:/SceneFixtureConsole.qml");
     }
-}
-
-quint32 SceneEditor::sceneID() const
-{
-    if (m_scene != NULL)
-        return m_scene->id();
-
-    return Function::invalidId();
+    FunctionEditor::setFunctionID(id);
 }
 
 QVariantList SceneEditor::fixtures()
@@ -81,19 +85,20 @@ QString SceneEditor::sceneName() const
 
 void SceneEditor::setSceneName(QString sceneName)
 {
-    if (m_scene == NULL)
-        return;
-
-    if (m_scene->name() == sceneName)
+    if (m_scene == NULL || m_scene->name() == sceneName)
         return;
 
     m_scene->setName(sceneName);
     emit sceneNameChanged();
 }
 
-void SceneEditor::setPreview(bool enable)
+void SceneEditor::setPreviewEnabled(bool enable)
 {
+    if (m_previewEnabled == enable)
+        return;
+
     qDebug() << "[SceneEditor] set preview" << enable;
+
     if (enable == true)
     {
         foreach(SceneValue sv, m_scene->values())
@@ -103,6 +108,33 @@ void SceneEditor::setPreview(bool enable)
         m_source->unsetAll();
 
     m_source->setOutputEnabled(enable);
+    m_previewEnabled = enable;
+    emit previewEnabledChanged(enable);
+}
+
+void SceneEditor::sceneConsoleLoaded(bool status)
+{
+    if (status == false)
+    {
+        m_sceneConsole = NULL;
+        m_fxConsoleMap.clear();
+    }
+    else
+    {
+        m_sceneConsole = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("sceneFixtureConsole"));
+    }
+}
+
+void SceneEditor::registerFixtureConsole(int index, QQuickItem *item)
+{
+    qDebug() << "[SceneEditor] Fixture console registered at index" << index;
+    m_fxConsoleMap[index] = item;
+}
+
+void SceneEditor::unRegisterFixtureConsole(int index)
+{
+    qDebug() << "[SceneEditor] Fixture console unregistered at index" << index;
+    m_fxConsoleMap.take(index);
 }
 
 bool SceneEditor::hasChannel(quint32 fxID, quint32 channel)
@@ -121,23 +153,74 @@ double SceneEditor::channelValue(quint32 fxID, quint32 channel)
     return (double)m_scene->value(fxID, channel);
 }
 
+void SceneEditor::setChannelValue(quint32 fxID, quint32 channel, uchar value)
+{
+    if (m_scene == NULL)
+        return;
+
+    bool blindMode = false;
+    if (m_source->isOutputEnabled() == false)
+        blindMode = true;
+
+    m_scene->setValue(SceneValue(fxID, channel, value), blindMode, false);
+
+    if (m_fixtureIDs.contains(fxID) == false)
+        updateFixtureList();
+    else
+    {
+        if (m_sceneConsole)
+        {
+            int fxIndex = m_fixtureIDs.indexOf(fxID);
+            if (m_fxConsoleMap.contains(fxIndex))
+            {
+                QMetaObject::invokeMethod(m_fxConsoleMap[fxIndex], "setChannelValue",
+                        Q_ARG(QVariant, channel),
+                        Q_ARG(QVariant, value));
+            }
+        }
+    }
+    if (blindMode == false)
+        m_source->set(fxID, channel,value);
+}
+
+void SceneEditor::unsetChannel(quint32 fxID, quint32 channel)
+{
+    if (m_scene == NULL || m_fixtureIDs.contains(fxID) == false)
+        return;
+
+    m_scene->unsetValue(fxID, channel);
+    if (m_source->isOutputEnabled() == true)
+        m_source->unset(fxID, channel);
+}
+
+void SceneEditor::setFixtureSelection(quint32 fxID)
+{
+    if (m_scene == NULL || m_sceneConsole == NULL ||
+        m_fixtureIDs.contains(fxID) == false)
+            return;
+
+    int fxIndex = m_fixtureIDs.indexOf(fxID);
+    QMetaObject::invokeMethod(m_sceneConsole, "scrollToItem",
+            Q_ARG(QVariant, fxIndex));
+}
+
 void SceneEditor::updateFixtureList()
 {
     if(m_scene == NULL)
         return;
 
-    QList<quint32> fxIDs;
+    m_fixtureIDs.clear();
     m_fixtures.clear();
 
     foreach(SceneValue sv, m_scene->values())
     {
-        if (fxIDs.contains(sv.fxi) == false)
+        if (m_fixtureIDs.contains(sv.fxi) == false)
         {
             Fixture *fixture = m_doc->fixture(sv.fxi);
             if(fixture == NULL)
                 continue;
             m_fixtures.append(QVariant::fromValue(fixture));
-            fxIDs.append(sv.fxi);
+            m_fixtureIDs.append(sv.fxi);
         }
     }
     emit fixturesChanged();

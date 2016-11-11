@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   collection.cpp
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -21,8 +22,9 @@
 #include <QDebug>
 #include <QFile>
 #include <QList>
-#include <QtXml>
 #include <QMutexLocker>
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 
 #include "qlcfile.h"
 
@@ -35,12 +37,9 @@
  * Initialization
  *****************************************************************************/
 
-Collection::Collection()
-{
-
-}
-
-Collection::Collection(Doc* doc) : Function(doc, Function::Collection)
+Collection::Collection(Doc* doc)
+    : Function(doc, Function::Collection)
+    , m_functionListMutex(QMutex::Recursive)
 {
     setName(tr("New Collection"));
 
@@ -51,8 +50,19 @@ Collection::Collection(Doc* doc) : Function(doc, Function::Collection)
 
 Collection::~Collection()
 {
-    QMutexLocker locker(&m_functionListMutex);
-    m_functions.clear();
+}
+
+quint32 Collection::totalDuration()
+{
+    quint32 totalDuration = 0;
+
+    foreach(QVariant fid, functions())
+    {
+        Function* function = doc()->function(fid.toUInt());
+        totalDuration += function->totalDuration();
+    }
+
+    return totalDuration;
 }
 
 /*****************************************************************************
@@ -94,13 +104,16 @@ bool Collection::copyFrom(const Function* function)
  * Contents
  *****************************************************************************/
 
-bool Collection::addFunction(quint32 fid)
+bool Collection::addFunction(quint32 fid, int insertIndex)
 {
     if (fid != this->id() && m_functions.contains(fid) == false)
     {
         {
             QMutexLocker locker(&m_functionListMutex);
-            m_functions.append(fid);
+            if (insertIndex == -1)
+                m_functions.append(fid);
+            else
+                m_functions.insert(insertIndex, fid);
         }
 
         emit changed(this->id());
@@ -133,7 +146,7 @@ bool Collection::removeFunction(quint32 fid)
     }
 }
 
-QVariantList Collection::functions() const
+QList<quint32> Collection::functions() const
 {
     QMutexLocker locker(&m_functionListMutex);
     return m_functions;
@@ -148,70 +161,64 @@ void Collection::slotFunctionRemoved(quint32 fid)
  * Load & Save
  *****************************************************************************/
 
-bool Collection::saveXML(QDomDocument* doc, QDomElement* wksp_root)
+bool Collection::saveXML(QXmlStreamWriter *doc)
 {
-    QDomElement root;
-    QDomElement tag;
-    QDomText text;
-    QString str;
     int i = 0;
 
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(wksp_root != NULL);
 
     /* Function tag */
-    root = doc->createElement(KXMLQLCFunction);
-    wksp_root->appendChild(root);
+    doc->writeStartElement(KXMLQLCFunction);
 
     /* Common attributes */
-    saveXMLCommon(&root);
+    saveXMLCommon(doc);
 
     /* Steps */
-    foreach(QVariant fid, m_functions)
+    QListIterator <quint32> it(m_functions);
+    while (it.hasNext() == true)
     {
         /* Step tag */
-        tag = doc->createElement(KXMLQLCFunctionStep);
-        root.appendChild(tag);
+        doc->writeStartElement(KXMLQLCFunctionStep);
 
         /* Step number */
-        tag.setAttribute(KXMLQLCFunctionNumber, i++);
+        doc->writeAttribute(KXMLQLCFunctionNumber, QString::number(i++));
 
         /* Step Function ID */
-        str.setNum(fid.toUInt());
-        text = doc->createTextNode(str);
-        tag.appendChild(text);
+        doc->writeCharacters(QString::number(it.next()));
+        doc->writeEndElement();
     }
+
+    /* End the <Function> tag */
+    doc->writeEndElement();
 
     return true;
 }
 
-bool Collection::loadXML(const QDomElement& root)
+bool Collection::loadXML(QXmlStreamReader &root)
 {
-    if (root.tagName() != KXMLQLCFunction)
+    if (root.name() != KXMLQLCFunction)
     {
         qWarning() << Q_FUNC_INFO << "Function node not found";
         return false;
     }
 
-    if (root.attribute(KXMLQLCFunctionType) != typeToString(Function::Collection))
+    if (root.attributes().value(KXMLQLCFunctionType).toString() != typeToString(Function::Collection))
     {
-        qWarning() << Q_FUNC_INFO << root.attribute(KXMLQLCFunctionType)
+        qWarning() << Q_FUNC_INFO << root.attributes().value(KXMLQLCFunctionType).toString()
                    << "is not a collection";
         return false;
     }
 
     /* Load collection contents */
-    QDomNode node = root.firstChild();
-    while (node.isNull() == false)
+    while (root.readNextStartElement())
     {
-        QDomElement tag = node.toElement();
-
-        if (tag.tagName() == KXMLQLCFunctionStep)
-            addFunction(tag.text().toUInt());
+        if (root.name() == KXMLQLCFunctionStep)
+            addFunction(root.readElementText().toUInt());
         else
-            qWarning() << Q_FUNC_INFO << "Unknown collection tag:" << tag.tagName();
-
-        node = node.nextSibling();
+        {
+            qWarning() << Q_FUNC_INFO << "Unknown collection tag:" << root.name();
+            root.skipCurrentElement();
+        }
     }
 
     return true;
@@ -224,39 +231,55 @@ void Collection::postLoad()
 
     /* Check that all member functions exist (nonexistent functions can
        be present only when a corrupted file has been loaded) */
-    QMutableListIterator<QVariant> it(m_functions);
+    QMutableListIterator<quint32> it(m_functions);
     while (it.hasNext() == true)
     {
         /* Remove any nonexistent member functions */
-        QVariant fidVar = it.next();
-        if (doc->function(fidVar.toUInt()) == NULL)
+        Function* function = doc->function(it.next());
+
+        if (function == NULL || function->contains(id())) // forbid self-containment
             it.remove();
     }
+}
+
+bool Collection::contains(quint32 functionId)
+{
+    Doc* doc = qobject_cast <Doc*> (parent());
+    Q_ASSERT(doc != NULL);
+
+    QListIterator <quint32> it(m_functions);
+    while (it.hasNext() == true)
+    {
+        Function* function = doc->function(it.next());
+        // contains() can be called during init, function may be NULL
+        if (function == NULL)
+            continue;
+
+        if (function->id() == functionId)
+            return true;
+        if (function->contains(functionId))
+            return true;
+    }
+
+    return false;
 }
 
 /*****************************************************************************
  * Running
  *****************************************************************************/
 
+FunctionParent Collection::functionParent() const
+{
+    return FunctionParent(FunctionParent::Function, id());
+}
+
 void Collection::preRun(MasterTimer* timer)
 {
+    Doc* doc = this->doc();
+    Q_ASSERT(doc != NULL);
     {
         QMutexLocker locker(&m_functionListMutex);
         m_runningChildren.clear();
-    }
-    Function::preRun(timer);
-}
-
-void Collection::write(MasterTimer* timer, QList<Universe *> universes)
-{
-    Q_UNUSED(universes);
-
-    if (elapsed() == 0)
-    {
-        Doc* doc = qobject_cast <Doc*> (parent());
-        Q_ASSERT(doc != NULL);
-
-        QMutexLocker locker(&m_functionListMutex);
         foreach(QVariant fid, m_functions)
         {
             Function* function = doc->function(fid.toUInt());
@@ -272,8 +295,59 @@ void Collection::write(MasterTimer* timer, QList<Universe *> universes)
             connect(function, SIGNAL(stopped(quint32)),
                     this, SLOT(slotChildStopped(quint32)));
 
+            // Listen to the children's stopped signals so that this collection
+            // can give up its rights to stop the function later.
+            connect(function, SIGNAL(running(quint32)),
+                    this, SLOT(slotChildStarted(quint32)));
+
             function->adjustAttribute(getAttributeValue(Function::Intensity), Function::Intensity);
-            function->start(timer, true, 0, overrideFadeInSpeed(), overrideFadeOutSpeed(), overrideDuration());
+            function->start(timer, functionParent(), 0, overrideFadeInSpeed(), overrideFadeOutSpeed(), overrideDuration());
+        }
+        m_tick = 1;
+    }
+    Function::preRun(timer);
+}
+
+void Collection::setPause(bool enable)
+{
+    Doc* doc = this->doc();
+    Q_ASSERT(doc != NULL);
+    foreach (quint32 fid, m_runningChildren)
+    {
+        Function* function = doc->function(fid);
+        Q_ASSERT(function != NULL);
+        function->setPause(enable);
+    }
+    Function::setPause(enable);
+}
+
+void Collection::write(MasterTimer* timer, QList<Universe *> universes)
+{
+    Q_UNUSED(timer);
+    Q_UNUSED(universes);
+
+    if (isPaused())
+        return;
+
+    // During first tick, children may be stopped & started.
+    if (m_tick == 1)
+        m_tick = 2;
+    else if (m_tick == 2)
+    {
+        m_tick = 0;
+        Doc* doc = this->doc();
+        Q_ASSERT(doc != NULL);
+
+        QMutexLocker locker(&m_functionListMutex);
+        foreach (quint32 fid, m_runningChildren)
+        {
+            Function* function = doc->function(fid);
+            Q_ASSERT(function != NULL);
+
+            // First tick may correspond to this collection starting the function
+            // Now that first tick is over, stop listening to running signal
+            disconnect(function, SIGNAL(running(quint32)),
+                    this, SLOT(slotChildStarted(quint32)));
         }
     }
 
@@ -282,10 +356,10 @@ void Collection::write(MasterTimer* timer, QList<Universe *> universes)
     {
         QMutexLocker locker(&m_functionListMutex);
         if (m_runningChildren.size() > 0)
-          return;
+            return;
     }
 
-    stop();
+    stop(functionParent());
 }
 
 void Collection::postRun(MasterTimer* timer, QList<Universe *> universes)
@@ -302,10 +376,24 @@ void Collection::postRun(MasterTimer* timer, QList<Universe *> universes)
         {
             Function* function = doc->function(it.next());
             Q_ASSERT(function != NULL);
-            function->stop();
+            function->stop(functionParent());
         }
 
         m_runningChildren.clear();
+
+        foreach(QVariant fid, m_functions)
+        {
+            Function* function = doc->function(fid.toUInt());
+            Q_ASSERT(function != NULL);
+
+            disconnect(function, SIGNAL(stopped(quint32)),
+                    this, SLOT(slotChildStopped(quint32)));
+            if (m_tick == 2)
+            {
+                disconnect(function, SIGNAL(running(quint32)),
+                        this, SLOT(slotChildStarted(quint32)));
+            }
+        }
     }
 
     Function::postRun(timer, universes);
@@ -313,15 +401,14 @@ void Collection::postRun(MasterTimer* timer, QList<Universe *> universes)
 
 void Collection::slotChildStopped(quint32 fid)
 {
-    Doc* doc = qobject_cast <Doc*> (parent());
-    Q_ASSERT(doc != NULL);
-
-    Function* function = doc->function(fid);
-    disconnect(function, SIGNAL(stopped(quint32)),
-               this, SLOT(slotChildStopped(quint32)));
-
     QMutexLocker locker(&m_functionListMutex);
     m_runningChildren.remove(fid);
+}
+
+void Collection::slotChildStarted(quint32 fid)
+{
+    QMutexLocker locker(&m_functionListMutex);
+    m_runningChildren << fid;
 }
 
 void Collection::adjustAttribute(qreal fraction, int attributeIndex)

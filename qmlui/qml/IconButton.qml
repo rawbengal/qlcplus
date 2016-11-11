@@ -22,17 +22,19 @@ import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.1
 import QtQuick.Controls.Private 1.0
 
+import "."
+
 Rectangle
 {
     id: baseIconButton
-    width: 38
-    height: 38
+    width: UISettings.iconSizeDefault
+    height: UISettings.iconSizeDefault
     visible: counter ? true : false
 
-    property color bgColor: "#5F5F5F"
-    property color hoverColor: "#B6B6B6"
-    property color pressColor: "#054A9E"
-    property color checkedColor: "#0978FF"
+    property color bgColor: UISettings.bgLight
+    property color hoverColor: UISettings.hover
+    property color pressColor: UISettings.highlightPressed
+    property color checkedColor: UISettings.highlight
 
     property bool checkable: false
     property bool checked: false
@@ -41,6 +43,9 @@ Rectangle
     property ExclusiveGroup exclusiveGroup: null
 
     property string imgSource: ""
+    property int imgMargins: 4
+    property string faSource: ""
+    property color faColor: "#222"
 
     property string tooltip: ""
 
@@ -57,24 +62,63 @@ Rectangle
         if (exclusiveGroup)
             exclusiveGroup.bindCheckable(baseIconButton)
     }
-    onCheckedChanged: {
-        if (checked == true)
-        {
-            baseIconButton.color = checkedColor
-        }
-        else
-        {
-            baseIconButton.color = bgColor
-        }
+    onCounterChanged:
+    {
+        if (counter == 0)
+            checked = false
     }
+
+    states: [
+        State
+        {
+            when: checked
+            PropertyChanges
+            {
+                target: baseIconButton
+                color: checkedColor
+            }
+        },
+        State
+        {
+            when: mouseArea1.pressed
+            PropertyChanges
+            {
+                target: baseIconButton
+                color: pressColor
+            }
+        },
+        State
+        {
+            when: mouseArea1.containsMouse
+            PropertyChanges
+            {
+                target: baseIconButton
+                color: hoverColor
+            }
+        }
+    ]
 
     Image
     {
         id: btnIcon
-        anchors.fill: parent
-        anchors.margins: 4
+        visible: imgSource ? true : false
+        anchors.centerIn: parent
+        width: Math.min(parent.width - imgMargins, parent.height - imgMargins)
+        height: width
+        anchors.margins: imgMargins
         source: imgSource
         sourceSize: Qt.size(width, height)
+    }
+
+    Text
+    {
+        id: faIcon
+        anchors.centerIn: parent
+        visible: faSource ? true : false
+        color: faColor
+        font.family: "FontAwesome"
+        font.pixelSize: parent.height - 4
+        text: faSource
     }
 
     MouseArea
@@ -82,17 +126,16 @@ Rectangle
         id: mouseArea1
         anchors.fill: parent
         hoverEnabled: true
-        onEntered: { if (checked == false) baseIconButton.color = hoverColor }
-        onExited: { if (checked == false) baseIconButton.color = bgColor; Tooltip.hideText() }
+        onExited: { Tooltip.hideText() }
         onReleased:
         {
             if (checkable == true)
             {
                 checked = !checked
-                baseIconButton.toggled(checked);
+                baseIconButton.toggled(checked)
             }
             else
-                baseIconButton.clicked();
+                baseIconButton.clicked()
         }
 
         onCanceled: Tooltip.hideText()

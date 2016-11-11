@@ -19,8 +19,24 @@
 
 import QtQuick 2.2
 
-Rectangle {
+import "CanvasDrawFunctions.js" as DrawFuncs
+import "."
+
+Rectangle
+{
     id: fixtureItem
+    x: (gridCellSize * mmXPos) / gridUnits
+    y: (gridCellSize * mmYPos) / gridUnits
+    z: 2
+    width: (gridCellSize * mmWidth) / gridUnits
+    height: (gridCellSize * mmHeight) / gridUnits
+
+    color: "#2A2A2A"
+    border.width: isSelected ? 2 : 1
+    border.color: isSelected ? UISettings.selection : UISettings.fgLight
+
+    Drag.active: fxMouseArea.drag.active
+
     property int fixtureID: fixtureManager.invalidFixture()
     property string fixtureName: ""
 
@@ -37,7 +53,11 @@ Rectangle {
     property int headColumns: 1
     property int headRows: 1
 
+    property int panMaxDegrees: 0
+    property int tiltMaxDegrees: 0
+
     property bool isSelected: false
+    property bool isDragging: false
     property bool showLabel: false
 
     onWidthChanged: calculateHeadSize();
@@ -47,28 +67,29 @@ Rectangle {
     function calculateHeadSize()
     {
         var areaSqrt = Math.sqrt((width * height) / headsNumber)
-        var columns = parseInt((width / areaSqrt) + 0.5);
-        var rows = parseInt((height / areaSqrt) + 0.5);
+        var columns = parseInt((width / areaSqrt) + 0.5)
+        var rows = parseInt((height / areaSqrt) + 0.5)
 
         // dirty workaround to correctly display right columns on one row
-        if (rows === 1) columns = headsNumber;
-        if (columns === 1) rows = headsNumber;
+        if (rows === 1) columns = headsNumber
+        if (columns === 1) rows = headsNumber
 
         if (columns > headsNumber)
-            columns = headsNumber;
+            columns = headsNumber
 
-        if (rows < 1) rows = 1;
-        if (columns < 1) columns = 1;
+        if (rows < 1) rows = 1
+        if (columns < 1) columns = 1
 
-        var cellWidth = width / columns;
-        var cellHeight = height / rows;
-        headSide = (cellWidth < cellHeight) ? cellWidth : cellHeight;
-        headColumns = columns;
-        headRows = rows;
+        var cellWidth = width / columns
+        var cellHeight = height / rows
+        headSide = parseInt(Math.min(cellWidth, cellHeight))
+        headColumns = columns
+        headRows = rows
     }
 
     function setHeadIntensity(headIndex, intensity)
     {
+        //console.log("headIdx: " + headIndex + ", int: " + intensity)
         headsRepeater.itemAt(headIndex).headLevel = intensity
     }
 
@@ -77,22 +98,24 @@ Rectangle {
         headsRepeater.itemAt(headIndex).headColor = color
     }
 
-    function setGoboPicture(headIndex, resource)
+    function setPosition(pan, tilt)
     {
-        headsRepeater.itemAt(headIndex).goboSource = "file:/" + resource
+        if (panMaxDegrees)
+            positionLayer.panDegrees = (panMaxDegrees / 0xFFFF) * pan
+
+        if (tiltMaxDegrees)
+            positionLayer.tiltDegrees = (tiltMaxDegrees / 0xFFFF) * tilt
+
+        positionLayer.requestPaint()
     }
 
-    x: (gridCellSize * mmXPos) / gridUnits
-    y: (gridCellSize * mmYPos) / gridUnits
-    z: 2
-    width: (gridCellSize * mmWidth) / gridUnits
-    height: (gridCellSize * mmHeight) / gridUnits
-
-    color: "#2A2A2A";
-    border.width: 1
-    border.color: isSelected ? "yellow" : "#AAA"
-
-    Drag.active: fxMouseArea.drag.active
+    function setGoboPicture(headIndex, resource)
+    {
+        if (Qt.platform.os === "android")
+            headsRepeater.itemAt(headIndex).goboSource = resource
+        else
+            headsRepeater.itemAt(headIndex).goboSource = "file:/" + resource
+    }
 
     Flow
     {
@@ -100,6 +123,7 @@ Rectangle {
         width: headSide * headColumns
         height: headSide * headRows
         anchors.centerIn: parent
+
         Repeater
         {
             id: headsRepeater
@@ -115,7 +139,7 @@ Rectangle {
                     property real uvLevel: 0.0
                     property string goboSource: ""
 
-                    width: fixtureItem.headSide - 1
+                    width: fixtureItem.headSide
                     height: width
                     color: "black"
                     radius: fixtureItem.headSide / 2
@@ -169,25 +193,80 @@ Rectangle {
         }
     }
 
+    Canvas
+    {
+        id: positionLayer
+        anchors.fill: parent
+        visible: (panMaxDegrees || tiltMaxDegrees) ? true : false
+
+        property int panDegrees: 0
+        property int tiltDegrees: 0
+
+        property int tiltWidth: ((positionLayer.width / 3) < 30) ? (positionLayer.width / 3) : 30
+        property int panHeight: ((positionLayer.height / 4) < 30) ? (positionLayer.height / 4) : 30
+        property int cursorRadius: tiltWidth / 2
+
+        onPaint:
+        {
+            if (positionLayer.visible == false)
+                return;
+
+            var ctx = positionLayer.getContext('2d');
+            //ctx.save();
+            ctx.globalAlpha = 0.7;
+            ctx.lineWidth = 1;
+
+            ctx.clearRect(0, 0, width, height)
+
+            if (tiltMaxDegrees)
+            {
+                // draw TILT curve
+                ctx.strokeStyle = "#2E77FF";
+                DrawFuncs.drawEllipse(ctx, width / 2, height / 2, tiltWidth, height)
+            }
+            if (panMaxDegrees)
+            {
+                // draw PAN curve
+                ctx.strokeStyle = "#19438F"
+                DrawFuncs.drawEllipse(ctx, width / 2, height / 2, width, panHeight)
+            }
+
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "white";
+
+            if (tiltMaxDegrees)
+            {
+                // draw TILT cursor position
+                ctx.fillStyle = "red";
+                DrawFuncs.drawCursor(ctx, width / 2, height / 2, tiltWidth, height, tiltDegrees + 135, cursorRadius)
+            }
+            if (panMaxDegrees)
+            {
+                // draw PAN cursor position
+                ctx.fillStyle = "green";
+                DrawFuncs.drawCursor(ctx, width / 2, height / 2, width, panHeight, panDegrees + 90, cursorRadius)
+            }
+        }
+    }
+
     Rectangle
     {
         id: fixtureLabel
         y: parent.height + 2
         x: -10
         width: parent.width + 20
-        height: 28
+        height: UISettings.listItemHeight
         color: "#444"
         visible: showLabel
 
         RobotoText
         {
-            width: parent.width
-            height: parent.height
+            anchors.fill: parent
             label: fixtureName
             //labelColor: "black"
-            fontSize: 8
+            fontSize: UISettings.textSizeDefault / 2
             wrapText: true
-            textAlign: Text.AlignHCenter
+            textHAlign: Text.AlignHCenter
         }
     }
 
@@ -198,14 +277,25 @@ Rectangle {
         hoverEnabled: true
         preventStealing: false
 
+        drag.threshold: UISettings.iconSizeDefault
+
         onEntered: fixtureLabel.visible = true
         onExited: showLabel ? fixtureLabel.visible = true : fixtureLabel.visible = false
 
-        onPressAndHold:
+        onPressed:
         {
-            drag.target = fixtureItem
-            console.log("drag started");
+            isSelected = !isSelected
+            contextManager.setFixtureSelection(fixtureID, isSelected)
         }
+
+        onPositionChanged:
+        {
+            if (!fxMouseArea.pressed)
+                return
+            drag.target = fixtureItem
+            isSelected = true
+        }
+
         onReleased:
         {
             if (drag.target !== null)
@@ -216,11 +306,6 @@ Rectangle {
                 contextManager.setFixturePosition(fixtureID, mmXPos, mmYPos)
                 drag.target = null
             }
-        }
-        onClicked:
-        {
-            isSelected = !isSelected
-            contextManager.setFixtureSelection(fixtureID, isSelected)
         }
     }
 }

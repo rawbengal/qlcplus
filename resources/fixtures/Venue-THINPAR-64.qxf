@@ -1,13 +1,13 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE FixtureDefinition>
-<FixtureDefinition xmlns="http://qlcplus.sourceforge.net/FixtureDefinition">
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
  <Creator>
   <Name>Q Light Controller Plus</Name>
   <Version>4.9.0 GIT</Version>
   <Author>Louis Gutenschwager</Author>
  </Creator>
  <Manufacturer>Venue</Manufacturer>
- <Model>THINPar 64</Model>
+ <Model>ThinPar 64</Model>
  <Type>Color Changer</Type>
  <Channel Name="Red">
   <Group Byte="0">Intensity</Group>

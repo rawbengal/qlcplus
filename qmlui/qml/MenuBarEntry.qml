@@ -20,17 +20,22 @@
 import QtQuick 2.2
 import QtQuick.Controls 1.2
 
+import "."
+
 Rectangle
 {
     id: menuEntry
-    width: btnIcon.width + textBox.width + 10
+    implicitWidth: entryContents.width + 10
     height: parent.height
+    gradient: (checked || mouseArea1.containsMouse) ? selGradient : bgGradient
 
-    property color checkedColor: "#12B4FF"
+    property color checkedColor: UISettings.toolbarSelectionMain
 
     property bool checkable: false
+    property bool editable: false
     property string imgSource: ""
     property string entryText: ""
+    property real mFontSize: UISettings.textSizeDefault * 0.70
     property bool checked: false
     property Gradient bgGradient: defBgGradient
     property Gradient selGradient: defSelectionGradient
@@ -41,26 +46,11 @@ Rectangle
         if (exclusiveGroup)
             exclusiveGroup.bindCheckable(menuEntry)
     }
-    onCheckedChanged:
-    {
-        if (checked == true)
-        {
-            selRect.color = checkedColor;
-            menuEntry.gradient = selGradient
-        }
-        else {
-            selRect.color = "transparent";
-            menuEntry.gradient = bgGradient
-        }
-    }
 
     signal clicked
     signal rightClicked
     signal toggled
-
-    gradient: bgGradient
-    //border.color: "black" //"#111"
-    //border.width: 1
+    signal textChanged(var text)
 
     Gradient
     {
@@ -84,9 +74,11 @@ Rectangle
 
     Row
     {
+        id: entryContents
+        height: parent.height
         spacing: 2
-        anchors.fill: parent
-        anchors.leftMargin: 3
+        //anchors.fill: parent
+        //anchors.leftMargin: 3
 
         Image
         {
@@ -101,26 +93,52 @@ Rectangle
 
         Rectangle
         {
-            y: 0
-            width: textBox.width
             height: parent.height
+            width: tbLoader.width
             color: "transparent"
 
-            RobotoText
+            Loader
             {
-                id: textBox
-                label: entryText
+                id: tbLoader
                 height: parent.height
-                fontSize: 12
-                fontBold: true
+                //width: item.width
+
+                source: menuEntry.editable ? "qrc:/EditableTextBox.qml" : "qrc:/RobotoText.qml"
+
+                onLoaded:
+                {
+                    if (menuEntry.editable == true)
+                    {
+                        item.color = "transparent"
+                        item.inputText = Qt.binding(function() { return entryText })
+                        item.maximumHeight = parent.height
+                        item.wrapText = false
+                    }
+                    else
+                    {
+                        item.label = Qt.binding(function() { return entryText })
+                        item.height = parent.height
+                        item.fontSize = mFontSize
+                        item.fontBold = true
+                    }
+                    width = Qt.binding(function() { return item.width })
+                }
+
+                Connections
+                {
+                    ignoreUnknownSignals: true
+                    target: tbLoader.item
+                    onTextChanged: menuEntry.textChanged(text)
+                }
             }
+
             Rectangle
             {
                 id: selRect
                 radius: 2
-                color: "transparent"
-                height: 5
-                width: textBox.width
+                color: checked ? checkedColor : "transparent"
+                height: UISettings.listItemHeight * 0.1
+                width: tbLoader.width
                 y: parent.height - height - 1
             }
         }
@@ -132,11 +150,9 @@ Rectangle
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onEntered: { if (checked == false) menuEntry.gradient = selGradient }
-        onExited: { if (checked == false) menuEntry.gradient = bgGradient }
         onClicked:
         {
-            if (mouse.button == Qt.LeftButton)
+            if (mouse.button === Qt.LeftButton)
             {
                 if (checkable == true)
                 {
@@ -149,6 +165,13 @@ Rectangle
             }
             else
                 menuEntry.rightClicked()
+        }
+        onDoubleClicked:
+        {
+            if (menuEntry.editable)
+            {
+                tbLoader.item.enableEditing()
+            }
         }
     }
 }

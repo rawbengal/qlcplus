@@ -25,7 +25,7 @@
 
 #include "function.h"
 
-class QDomDocument;
+class QXmlStreamReader;
 
 /** @addtogroup engine_functions Functions
  * @{
@@ -85,17 +85,11 @@ public:
      */
     quint32 getStartTime() const;
 
-    /**
-     * Set the video duration retrieved from the source parsing
-     */
-    void setTotalDuration(qint64 duration);
+    /** @reimpl */
+    void setTotalDuration(quint32 duration);
 
-    /**
-     * Returns the duration of the source video file loaded
-     *
-     * @return Duration in milliseconds of the source video file
-     */
-    qint64 totalDuration();
+    /** @reimpl */
+    quint32 totalDuration();
 
     /**
      * Sets the video resolution as a QSize variable
@@ -180,6 +174,7 @@ signals:
     void totalTimeChanged(qint64);
     void metaDataChanged(QString key, QVariant data);
     void requestPlayback();
+    void requestPause(bool enable);
     void requestStop();
     void requestBrightnessAdjust(int value);
 
@@ -208,10 +203,10 @@ private:
      *********************************************************************/
 public:
     /** Save function's contents to an XML document */
-    bool saveXML(QDomDocument* doc, QDomElement*);
+    bool saveXML(QXmlStreamWriter *doc);
 
     /** Load function's contents from an XML document */
-    bool loadXML(const QDomElement&);
+    bool loadXML(QXmlStreamReader &root);
 
     /** @reimp */
     void postLoad();
@@ -222,6 +217,9 @@ public:
 public:
     /** @reimpl */
     void preRun(MasterTimer*);
+
+    /** @reimpl */
+    void setPause(bool enable);
 
     /** @reimpl */
     void write(MasterTimer* timer, QList<Universe*> universes);

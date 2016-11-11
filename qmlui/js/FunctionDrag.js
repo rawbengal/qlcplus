@@ -52,7 +52,7 @@ function createItem()
     {
         draggedItem = itemComponent.createObject(mainView,
                   {"x": posnInWindow.x, "y": posnInWindow.y, "z": 10,
-                   "funcID": fID, "funcLabel": fLabel, "funcIcon": fIcon });
+                   "funcID": fID, "funcLabel": fLabel, "funcIcon": fIcon, "Drag.keys": "function" });
     }
     else if (itemComponent.status === Component.Error)
     {
@@ -74,11 +74,12 @@ function handleDrag(mouse)
     draggedItem.y = mouse.y + posnInWindow.y - 5;
 }
 
-function endDrag(mouse)
+function endDrag(mouse, modifiers)
 {
     if (draggedItem == null)
         return;
 
+    draggedItem.modifiers = modifiers
     draggedItem.Drag.drop();
     draggedItem.destroy();
     draggedItem = null;

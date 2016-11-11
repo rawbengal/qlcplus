@@ -4,7 +4,6 @@ TEMPLATE = lib
 LANGUAGE = C++
 TARGET   = iopluginstub
 
-QT          += xml script
 CONFIG      += plugin
 INCLUDEPATH += ../../../plugins/interfaces
 DEPENDPATH  += ../../../plugins/interfaces

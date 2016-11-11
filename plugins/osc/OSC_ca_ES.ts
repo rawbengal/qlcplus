@@ -40,38 +40,26 @@
         <translation>Port de Sortida</translation>
     </message>
     <message>
-        <source>Output address:</source>
-        <translation type="obsolete">Adreça de Sortida:</translation>
-    </message>
-    <message>
-        <source>Input port:</source>
-        <translation type="obsolete">Port d&apos;Entrada:</translation>
-    </message>
-    <message>
-        <source>OSC Network 2</source>
-        <translation type="obsolete">xarxa OSC 2</translation>
-    </message>
-    <message>
-        <source>OSC Network 1</source>
-        <translation type="obsolete">Xarxa OSC 1</translation>
-    </message>
-    <message>
-        <source>OSC Network 3</source>
-        <translation type="obsolete">Xarxa OSC 3</translation>
-    </message>
-    <message>
-        <source>OSC Network 4</source>
-        <translation type="obsolete">Xarxa OSC 4</translation>
-    </message>
-    <message>
-        <location filename="configureosc.cpp" line="75"/>
+        <location filename="configureosc.cpp" line="76"/>
         <source>Inputs</source>
         <translation>Entrades</translation>
     </message>
     <message>
-        <location filename="configureosc.cpp" line="81"/>
+        <location filename="configureosc.cpp" line="82"/>
         <source>Outputs</source>
         <translation>Sortides</translation>
+    </message>
+    <message>
+        <location filename="configureosc.cpp" line="168"/>
+        <source>Invalid IP</source>
+        <translation>IP Invàlida</translation>
+    </message>
+    <message>
+        <location filename="configureosc.cpp" line="168"/>
+        <source>%1 is not a valid IP.
+Please fix it before confirming.</source>
+        <translation>%1 no es una IP vàlida.
+Si us plau arreglar-ho abans de confirmar. </translation>
     </message>
 </context>
 <context>
@@ -104,25 +92,9 @@
         <translation>Paquets rebuts:</translation>
     </message>
     <message>
-        <source>OSC Network</source>
-        <translation type="obsolete">Xarxa OSC</translation>
-    </message>
-    <message>
         <location filename="oscplugin.cpp" line="109"/>
         <source>Output</source>
         <translation>Sortida</translation>
-    </message>
-    <message>
-        <source>Status: Not ready</source>
-        <translation type="obsolete">Estat: no està llest</translation>
-    </message>
-    <message>
-        <source>Address: </source>
-        <translation type="obsolete">Adreça:</translation>
-    </message>
-    <message>
-        <source>Status: Ready</source>
-        <translation type="obsolete">Estat: Llest</translation>
     </message>
     <message>
         <location filename="oscplugin.cpp" line="253"/>

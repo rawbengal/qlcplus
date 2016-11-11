@@ -21,7 +21,9 @@ import QtQuick 2.2
 import QtQuick.Layouts 1.1
 import QtQuick.Controls 1.2
 
-import "DetachWindow.js" as WinLoader
+import QtQuick.Window 2.0
+
+import "."
 
 Rectangle
 {
@@ -31,23 +33,67 @@ Rectangle
     height: 600
     anchors.fill: parent
 
+    property string currentContext: "FIXANDFUNC"
+
+    function enableContext(ctx, setChecked)
+    {
+        var item = null
+
+        if (ctx === "FIXANDFUNC")
+            item = edEntry
+        else if (ctx === "VC")
+            item = vcEntry
+        else if (ctx === "SDESK")
+            item = sdEntry
+        else if (ctx === "SHOWMGR")
+            item = smEntry
+        else if (ctx === "IOMGR")
+            item = ioEntry
+
+        if (item)
+        {
+            item.visible = true
+            if (setChecked)
+                item.checked = true
+        }
+    }
+
+    function switchToContext(ctx, qmlRes)
+    {
+        if (currentContext === ctx)
+            return
+
+        enableContext(ctx, true)
+        currentContext = ctx
+        mainViewLoader.source = qmlRes
+    }
+
     FontLoader
     {
-        source: "qrc:RobotoCondensed-Regular.ttf"
+        source: "qrc:/RobotoCondensed-Regular.ttf"
+    }
+
+    // Load the "FontAwesome" font for the monochrome icons
+    FontLoader
+    {
+        source: "qrc:/FontAwesome.otf"
     }
 
     Rectangle
     {
         id: mainToolbar
         width: parent.width
-        // this can be read from an external variable (QSettings ?) and will still work !
-        height: 40
+        height: UISettings.iconSizeDefault
         z: 50
         gradient: Gradient
         {
-            id: bgGradient
-            GradientStop { position: 0 ; color: "#1a1a1a" }
-            GradientStop { position: 1 ; color: "#111" }
+            GradientStop { position: 0; color: UISettings.toolbarStartMain }
+            GradientStop { position: 1; color: UISettings.toolbarEnd }
+        }
+
+        Component.onCompleted:
+        {
+            console.log("density: " + Screen.pixelDensity + ", ratio: " + Screen.devicePixelRatio)
         }
 
         RowLayout
@@ -59,19 +105,14 @@ Rectangle
             MenuBarEntry
             {
                 id: actEntry
-                imgSource: "qrc:/qlcplus.png"
+                imgSource: "qrc:/qlcplus.svg"
                 entryText: qsTr("Actions")
-                onClicked:
-                {
-                    actionsMenu.visible = true
-                    contextMenuArea.enabled = true
-                    contextMenuArea.z = 98
-                }
+                onClicked: actionsMenu.visible = true
             }
             MenuBarEntry
             {
                 id: edEntry
-                imgSource: "editor.svg"
+                imgSource: "qrc:/editor.svg"
                 entryText: qsTr("Fixtures & Functions")
                 checkable: true
                 checked: true
@@ -79,95 +120,147 @@ Rectangle
                 onCheckedChanged:
                 {
                     if (checked == true)
-                        viewLoader.source = "qrc:/FixturesAndFunctions.qml"
+                        switchToContext("FIXANDFUNC", "qrc:/FixturesAndFunctions.qml")
                 }
-                /*
-                onRightClicked:
-                {
-                    WinLoader.createWindow("qrc:/FixturesAndFunctions.qml")
-                }
-                */
             }
             MenuBarEntry
             {
                 id: vcEntry
-                imgSource: "virtualconsole.svg"
+                imgSource: "qrc:/virtualconsole.svg"
                 entryText: qsTr("Virtual Console")
                 checkable: true
                 exclusiveGroup: menuBarGroup
                 onCheckedChanged:
                 {
                     if (checked == true)
-                        viewLoader.source = "qrc:/VirtualConsole.qml"
+                        switchToContext("VC", "qrc:/VirtualConsole.qml")
                 }
                 onRightClicked:
                 {
-                    WinLoader.createWindow("qrc:/VirtualConsole.qml")
+                    vcEntry.visible = false
+                    contextManager.detachContext("VC")
                 }
             }
             MenuBarEntry
             {
                 id: sdEntry
-                imgSource: "simpledesk.svg"
+                imgSource: "qrc:/simpledesk.svg"
                 entryText: qsTr("Simple Desk")
                 checkable: true
                 exclusiveGroup: menuBarGroup
                 onCheckedChanged:
                 {
                     if (checked == true)
-                        viewLoader.source = "qrc:/SimpleDesk.qml"
+                        switchToContext("SDESK", "qrc:/SimpleDesk.qml")
                 }
                 onRightClicked:
                 {
-                    WinLoader.createWindow("qrc:/SimpleDesk.qml")
+                    sdEntry.visible = false
+                    contextManager.detachContext("SDESK")
                 }
             }
             MenuBarEntry
             {
                 id: smEntry
-                imgSource: "showmanager.svg"
+                imgSource: "qrc:/showmanager.svg"
                 entryText: qsTr("Show Manager")
                 checkable: true
                 exclusiveGroup: menuBarGroup
                 onCheckedChanged:
                 {
                     if (checked == true)
-                        viewLoader.source = "qrc:/ShowManager.qml"
+                        switchToContext("SHOWMGR", "qrc:/ShowManager.qml")
                 }
                 onRightClicked:
                 {
-                    WinLoader.createWindow("qrc:/ShowManager.qml")
+                    smEntry.visible = false
+                    contextManager.detachContext("SHOWMGR")
                 }
             }
             MenuBarEntry
             {
                 id: ioEntry
-                imgSource: "inputoutput.svg"
+                imgSource: "qrc:/inputoutput.svg"
                 entryText: qsTr("Input/Output")
                 checkable: true
                 exclusiveGroup: menuBarGroup
                 onCheckedChanged:
                 {
                     if (checked == true)
-                        viewLoader.source = "qrc:/InputOutputManager.qml"
+                        switchToContext("IOMGR", "qrc:/InputOutputManager.qml")
                 }
                 onRightClicked:
                 {
-                    WinLoader.createWindow("qrc:/InputOutputManager.qml")
+                    ioEntry.visible = false
+                    contextManager.detachContext("IOMGR")
                 }
             }
             Rectangle
             {
                 // acts like an horizontal spacer
                 Layout.fillWidth: true
+                color: "transparent"
             }
-        }
-    }
+            RobotoText
+            {
+                label: "BPM: " + (ioManager.bpmNumber > 0 ? ioManager.bpmNumber : qsTr("Off"))
+                color: gsMouseArea.containsMouse ? UISettings.bgLight : "transparent"
+                fontSize: UISettings.textSizeDefault
+                MouseArea
+                {
+                    id: gsMouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: beatSelectionPanel.visible = !beatSelectionPanel.visible
+                }
+                BeatGeneratorsPanel
+                {
+                    id: beatSelectionPanel
+                    parent: mainView
+                    y: mainToolbar.height
+                    x: beatIndicator.x - width
+                    visible: false
+                }
+            }
+            Rectangle
+            {
+                id: beatIndicator
+                width: height
+                height: parent.height * 0.5
+                radius: height / 2
+                border.width: 2
+                border.color: "#333"
+                color: "#666"
+
+                ColorAnimation on color
+                {
+                    id: cAnim
+                    from: "#00FF00"
+                    to: "#666"
+                    // half the duration of the current BPM
+                    duration: ioManager.bpmNumber ? 30000 / ioManager.bpmNumber : 200
+                    running: false
+                }
+
+                Connections
+                {
+                    id: beatSignal
+                    target: ioManager
+                    onBeat: cAnim.restart()
+                }
+            }
+
+        } // end of RowLayout
+    } // end of mainToolbar
 
     /** Menu to open/load/save a project */
     ActionsMenu
     {
         id: actionsMenu
+        x: 1
+        y: actEntry.height + 1
+        visible: false
+        z: visible ? 99 : 0
     }
 
     /** Mouse area enabled when actionsMenu is visible
@@ -177,19 +270,10 @@ Rectangle
     MouseArea
     {
         id: contextMenuArea
-        z: 0
-        enabled: false
+        z: actionsMenu.visible ? 98 : 0
+        enabled: actionsMenu.visible
         anchors.fill: parent
-        onClicked:
-        {
-            console.log("Root clicked")
-            if (actionsMenu.visible == true)
-            {
-                contextMenuArea.enabled = false
-                contextMenuArea.z = 0;
-                actionsMenu.visible = false
-            }
-        }
+        onClicked: actionsMenu.visible = false
     }
 
     Rectangle
@@ -198,13 +282,17 @@ Rectangle
         width: parent.width
         height: parent.height - mainToolbar.height
         y: mainToolbar.height
-        color: "#303030"
+        color: UISettings.bgMain
 
         Loader
         {
-            id: viewLoader
+            id: mainViewLoader
             anchors.fill: parent
             source: "qrc:/FixturesAndFunctions.qml"
         }
+    }
+    PopupBox
+    {
+        anchors.fill: parent
     }
 }

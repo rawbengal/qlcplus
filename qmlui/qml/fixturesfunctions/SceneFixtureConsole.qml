@@ -19,28 +19,66 @@
 
 import QtQuick 2.0
 import QtQuick.Layouts 1.1
+import "."
 
 Rectangle
 {
     id: sfcContainer
     anchors.fill: parent
     color: "transparent"
+    objectName: "sceneFixtureConsole"
+    property int currentSelIndex: -1
+
+    Component.onCompleted: sceneEditor.sceneConsoleLoaded(true)
+    Component.onDestruction: sceneEditor.sceneConsoleLoaded(false)
+
+    function scrollToItem(fxIdx)
+    {
+        console.log("[scrollToItem] fxIdx: " + fxIdx)
+        currentSelIndex = fxIdx
+        fixtureList.positionViewAtIndex(fxIdx, ListView.Beginning)
+    }
 
     ListView
     {
+        id: fixtureList
         anchors.fill: parent
         orientation: ListView.Horizontal
         model: sceneEditor.fixtures
         boundsBehavior: Flickable.StopAtBounds
+        highlightFollowsCurrentItem: false
 
         delegate:
-            FixtureConsole
+            Rectangle
             {
-                fixtureObj: modelData
                 height: parent.height
-                color: index % 2 ? "#202020" : "#303030"
-                showEnablers: true
-                sceneConsole: true
+                width: fxConsole.width + 4
+                property bool isSelected: (index == currentSelIndex) ? true : false
+                color: "black"
+
+                Component.onCompleted: sceneEditor.registerFixtureConsole(index, fxConsole)
+                Component.onDestruction: sceneEditor.unRegisterFixtureConsole(index)
+
+                FixtureConsole
+                {
+                    id: fxConsole
+                    x: 2
+                    fixtureObj: modelData
+                    height: parent.height
+                    color: index % 2 ? "#202020" : "#404040"
+                    showEnablers: true
+                    sceneConsole: true
+                }
+                // Fixture divider
+                Rectangle
+                {
+                    anchors.fill: parent
+                    width: 2
+                    color: "transparent"
+                    radius: 3
+                    border.width: 2
+                    border.color: isSelected ? UISettings.highlight : "transparent"
+                }
             }
     }
 }

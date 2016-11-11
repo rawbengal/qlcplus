@@ -34,6 +34,9 @@ FixtureManager::FixtureManager(QQuickView *view, Doc *doc, QObject *parent)
     : QObject(parent)
     , m_view(view)
     , m_doc(doc)
+    , m_universeFilter(Universe::invalid())
+    , m_maxPanDegrees(0)
+    , m_maxTiltDegrees(0)
 {
     Q_ASSERT(m_doc != NULL);
 
@@ -58,6 +61,33 @@ quint32 FixtureManager::invalidFixture()
 quint32 FixtureManager::fixtureForAddress(quint32 index)
 {
     return m_doc->fixtureForAddress(index);
+}
+
+QVariantList FixtureManager::fixtureSelection(quint32 address)
+{
+    QVariantList list;
+    quint32 uniFilter = m_universeFilter == Universe::invalid() ? 0 : m_universeFilter;
+
+    quint32 fxID = m_doc->fixtureForAddress((uniFilter << 9) | address);
+    if (fxID == Fixture::invalidId())
+        return list;
+
+    Fixture *fixture = m_doc->fixture(fxID);
+    if (fixture == NULL)
+        return list;
+
+    quint32 startAddr = fixture->address();
+    for (quint32 i = 0; i < fixture->channels(); i++)
+    {
+        list.append(startAddr + i);
+        QLCChannel::Group group = fixture->channel(i)->group();
+        if (group == QLCChannel::Intensity)
+            list.append(fixture->channel(i)->colour());
+        else
+            list.append(group - 1);
+    }
+
+    return list;
 }
 
 bool FixtureManager::addFixture(QString manuf, QString model, QString mode, QString name,
@@ -94,7 +124,22 @@ bool FixtureManager::addFixture(QString manuf, QString model, QString mode, QStr
     emit fixturesCountChanged();
 
     updateFixtureTree();
+    emit fixturesMapChanged();
 
+    return true;
+}
+
+bool FixtureManager::moveFixture(quint32 fixtureID, quint32 newAddress)
+{
+    qDebug() << "[FixtureManager] requested to move fixture with ID" << fixtureID << "to address" << newAddress;
+    Fixture *fixture = m_doc->fixture(fixtureID);
+    if (fixture == NULL)
+        return false;
+
+    fixture->setAddress(newAddress);
+
+    updateFixtureTree();
+    emit fixturesMapChanged();
     return true;
 }
 
@@ -143,6 +188,16 @@ void FixtureManager::setColorValue(quint8 red, quint8 green, quint8 blue,
     emit colorChanged(QColor(red, green, blue), QColor(white, amber, uv));
 }
 
+void FixtureManager::setPanValue(int degrees)
+{
+    emit positionTypeValueChanged(QLCChannel::Pan, degrees);
+}
+
+void FixtureManager::setTiltValue(int degrees)
+{
+    emit positionTypeValueChanged(QLCChannel::Tilt, degrees);
+}
+
 void FixtureManager::setPresetValue(int index, quint8 value)
 {
     qDebug() << "[FixtureManager] setPresetValue - index:" << index << "value:" << value;
@@ -183,10 +238,12 @@ QMultiHash<int, SceneValue> FixtureManager::setFixtureCapabilities(quint32 fxID,
             case QLCChannel::Intensity:
             {
                 QLCChannel::PrimaryColour col = channel->colour();
+                chType = col;
                 switch (col)
                 {
                     case QLCChannel::NoColour:
                         hasDimmer = true;
+                        channelsMap.insert(chType, SceneValue(fxID, ch));
                     break;
                     case QLCChannel::Red:
                     case QLCChannel::Green:
@@ -196,15 +253,34 @@ QMultiHash<int, SceneValue> FixtureManager::setFixtureCapabilities(quint32 fxID,
                     case QLCChannel::Yellow:
                     case QLCChannel::White:
                         hasColor = true;
+                        channelsMap.insert(chType, SceneValue(fxID, ch));
                     break;
                     default: break;
                 }
-                chType = col;
             }
             break;
             case QLCChannel::Pan:
             case QLCChannel::Tilt:
+            {
                 hasPosition = true;
+                if(fixture->fixtureMode() != NULL)
+                {
+                    QLCPhysical phy = fixture->fixtureMode()->physical();
+                    int panDeg = phy.focusPanMax();
+                    int tiltDeg = phy.focusTiltMax();
+                    // if not set, try to give them reasonable values
+                    if (panDeg == 0) panDeg = 360;
+                    if (tiltDeg == 0) tiltDeg = 270;
+
+                    if (panDeg > m_maxPanDegrees)
+                        m_maxPanDegrees = panDeg;
+                    if (tiltDeg > m_maxTiltDegrees)
+                        m_maxTiltDegrees = tiltDeg;
+
+                    qDebug() << "Fixture" << fixture->name() << "Pan:" << panDeg << ", Tilt:" << tiltDeg;
+                }
+                channelsMap.insert(chType, SceneValue(fxID, ch));
+            }
             break;
             case QLCChannel::Colour:
             {
@@ -222,6 +298,7 @@ QMultiHash<int, SceneValue> FixtureManager::setFixtureCapabilities(quint32 fxID,
                     m_presetsCache.remove(channel);
                     emit colorWheelChannelsChanged();
                 }
+                channelsMap.insert(chType, SceneValue(fxID, ch));
             }
             break;
             case QLCChannel::Gobo:
@@ -240,6 +317,7 @@ QMultiHash<int, SceneValue> FixtureManager::setFixtureCapabilities(quint32 fxID,
                     m_presetsCache.remove(channel);
                     emit goboChannelsChanged();
                 }
+                channelsMap.insert(chType, SceneValue(fxID, ch));
             }
             break;
             default:
@@ -259,6 +337,8 @@ QMultiHash<int, SceneValue> FixtureManager::setFixtureCapabilities(quint32 fxID,
         {
             QQuickItem *capItem = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("capPosition"));
             capItem->setProperty("counter", capItem->property("counter").toInt() + capDelta);
+            capItem->setProperty("panDegrees", m_maxPanDegrees);
+            capItem->setProperty("tiltDegrees", m_maxTiltDegrees);
         }
         if (hasColorWheel)
         {
@@ -270,8 +350,6 @@ QMultiHash<int, SceneValue> FixtureManager::setFixtureCapabilities(quint32 fxID,
             QQuickItem *capItem = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("capGobos"));
             capItem->setProperty("counter", capItem->property("counter").toInt() + capDelta);
         }
-
-        channelsMap.insert(chType, SceneValue(fxID, ch));
     }
     return channelsMap;
 }
@@ -288,9 +366,25 @@ QQmlListProperty<Fixture> FixtureManager::fixtures()
     return QQmlListProperty<Fixture>(this, m_fixtureList);
 }
 
-QVariant FixtureManager::groupsModel()
+QVariant FixtureManager::groupsTreeModel()
 {
     return QVariant::fromValue(m_fixtureTree);
+}
+
+QVariant FixtureManager::groupsListModel()
+{
+    QVariantList groupsList;
+
+    foreach(FixtureGroup *grp, m_doc->fixtureGroups())
+    {
+        QVariantMap grpMap;
+        grpMap.insert("mIcon", "qrc:/group.svg");
+        grpMap.insert("mLabel", grp->name());
+        grpMap.insert("mValue", grp->id());
+        groupsList.append(grpMap);
+    }
+
+    return QVariant::fromValue(groupsList);
 }
 
 void FixtureManager::addFixturesToNewGroup(QList<quint32> fxList)
@@ -319,6 +413,83 @@ void FixtureManager::addFixturesToNewGroup(QList<quint32> fxList)
         group->assignFixture(id);
 
     updateFixtureTree();
+}
+
+QList<SceneValue> FixtureManager::getFixturePosition(quint32 fxID, int type, int degrees)
+{
+    QList<SceneValue> posList;
+    // cache a list of channels processed, to avoid duplicates
+    QList<quint32> chDone;
+
+    Fixture *fixture = m_doc->fixture(fxID);
+    if (fixture == NULL || fixture->fixtureMode() == NULL)
+        return posList;
+
+    QLCPhysical phy = fixture->fixtureMode()->physical();
+    float maxDegrees;
+    if (type == QLCChannel::Pan)
+    {
+        maxDegrees = phy.focusPanMax();
+        if (maxDegrees == 0) maxDegrees = 360;
+
+        for (int i = 0; i < fixture->heads(); i++)
+        {
+            quint32 panMSB = fixture->panMsbChannel(i);
+            if (panMSB == QLCChannel::invalid() || chDone.contains(panMSB))
+                continue;
+
+            float dmxValue = (float)(degrees * UCHAR_MAX) / maxDegrees;
+            posList.append(SceneValue(fixture->id(), panMSB, static_cast<uchar>(qFloor(dmxValue))));
+
+            qDebug() << "[getFixturePosition] Pan MSB:" << dmxValue;
+
+            quint32 panLSB = fixture->panLsbChannel(i);
+
+            if (panLSB != QLCChannel::invalid())
+            {
+                float lsbDegrees = (float)maxDegrees / (float)UCHAR_MAX;
+                float lsbValue = (float)((dmxValue - qFloor(dmxValue)) * UCHAR_MAX) / lsbDegrees;
+                posList.append(SceneValue(fixture->id(), panLSB, static_cast<uchar>(lsbValue)));
+
+                qDebug() << "[getFixturePosition] Pan LSB:" << lsbValue;
+            }
+
+            chDone.append(panMSB);
+        }
+    }
+    else if (type == QLCChannel::Tilt)
+    {
+        maxDegrees = phy.focusTiltMax();
+        if (maxDegrees == 0) maxDegrees = 270;
+
+        for (int i = 0; i < fixture->heads(); i++)
+        {
+            quint32 tiltMSB = fixture->tiltMsbChannel(i);
+            if (tiltMSB == QLCChannel::invalid() || chDone.contains(tiltMSB))
+                continue;
+
+            float dmxValue = (float)(degrees * UCHAR_MAX) / maxDegrees;
+            posList.append(SceneValue(fixture->id(), tiltMSB, static_cast<uchar>(qFloor(dmxValue))));
+
+            qDebug() << "[getFixturePosition] Tilt MSB:" << dmxValue;
+
+            quint32 tiltLSB = fixture->tiltLsbChannel(i);
+
+            if (tiltLSB != QLCChannel::invalid())
+            {
+                float lsbDegrees = (float)maxDegrees / (float)UCHAR_MAX;
+                float lsbValue = (float)((dmxValue - qFloor(dmxValue)) * UCHAR_MAX) / lsbDegrees;
+                posList.append(SceneValue(fixture->id(), tiltLSB, static_cast<uchar>(lsbValue)));
+
+                qDebug() << "[getFixturePosition] Tilt LSB:" << lsbValue;
+            }
+
+            chDone.append(tiltMSB);
+        }
+
+    }
+
+    return posList;
 }
 
 QVariantList FixtureManager::presetsChannels(QLCChannel::Group group)
@@ -362,7 +533,7 @@ void FixtureManager::updateFixtureTree()
     QStringList uniNames = m_doc->inputOutputMap()->universeNames();
 
     // add the current universes as groups
-    foreach(Fixture *fixture, m_doc->fixtures())
+    for (Fixture *fixture : m_doc->fixtures()) // C++11
     {
         QVariantList params;
         params.append(QVariant::fromValue(fixture));
@@ -370,7 +541,7 @@ void FixtureManager::updateFixtureTree()
     }
 
     // add the actual Fixture Groups
-    foreach (FixtureGroup* grp, m_doc->fixtureGroups())
+    for (FixtureGroup* grp : m_doc->fixtureGroups()) // C++11
     {
         foreach(quint32 fxID, grp->fixtureList())
         {
@@ -382,7 +553,8 @@ void FixtureManager::updateFixtureTree()
             m_fixtureTree->addItem(fixture->name(), params, grp->name());
         }
     }
-    emit groupsModelChanged();
+    emit groupsTreeModelChanged();
+    emit groupsListModelChanged();
 }
 
 QVariantList FixtureManager::goboChannels()
@@ -414,8 +586,91 @@ QVariantList FixtureManager::presetCapabilities(int index)
     return var;
 }
 
+QVariantList FixtureManager::fixturesMap()
+{
+    m_fixturesMap.clear();
+    bool odd = true;
+
+    /* There would be two ways to transfer organized data to QML.
+     * The first is a QVariantList of QVariantMaps, to have named variables.
+     * The second is a plain QVariantList of numbers, organized as contiguous
+     * groups with a specific (implicit) meaning.
+     * In this case since we have to transfer a lot of data and the rendering
+     * is already heavy, I prefer the second option, organized as follows:
+     *
+     * Fixture ID | DMX address | isOdd | channel type (a lookup for icons)
+     */
+
+    foreach(Fixture *fx, m_doc->fixtures())
+    {
+        if (fx != NULL)
+        {
+            quint32 uniFilter = m_universeFilter == Universe::invalid() ? 0 : m_universeFilter;
+
+            if (fx->universe() != uniFilter)
+                continue;
+
+            quint32 startAddress = fx->address();
+            for(quint32 cn = 0; cn < fx->channels(); cn++)
+            {
+                m_fixturesMap.append(fx->id());
+                m_fixturesMap.append(startAddress + cn);
+
+                if (odd)
+                    m_fixturesMap.append(1);
+                else
+                    m_fixturesMap.append(0);
+
+                QLCChannel::Group group = fx->channel(cn)->group();
+                if (group == QLCChannel::Intensity)
+                    m_fixturesMap.append(fx->channel(cn)->colour());
+                else
+                    m_fixturesMap.append(group - 1);
+            }
+            odd = !odd;
+        }
+    }
+    return m_fixturesMap;
+}
+
+quint32 FixtureManager::universeFilter() const
+{
+    return m_universeFilter;
+}
+
+void FixtureManager::setUniverseFilter(quint32 universeFilter)
+{
+    if (m_universeFilter == universeFilter)
+        return;
+
+    m_universeFilter = universeFilter;
+    emit universeFilterChanged(universeFilter);
+    qDebug("Notify that the fixtures map has changed !");
+    emit fixturesMapChanged();
+}
+
 void FixtureManager::slotDocLoaded()
 {
+    QQuickItem *capItem = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("capIntensity"));
+    if (capItem)
+        capItem->setProperty("counter", 0);
+
+    capItem = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("capColor"));
+    if (capItem)
+        capItem->setProperty("counter", 0);
+
+    capItem = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("capPosition"));
+    if (capItem)
+        capItem->setProperty("counter", 0);
+
+    capItem = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("capColorWheel"));
+    if (capItem)
+        capItem->setProperty("counter", 0);
+
+    capItem = qobject_cast<QQuickItem*>(m_view->rootObject()->findChild<QObject *>("capGobos"));
+    if (capItem)
+        capItem->setProperty("counter", 0);
+
     m_fixtureList.clear();
     m_fixtureList = m_doc->fixtures();
     emit fixturesCountChanged();

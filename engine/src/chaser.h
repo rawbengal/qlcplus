@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   chaser.h
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -32,7 +33,7 @@ class QFile;
 class QString;
 class ChaserStep;
 class MasterTimer;
-class QDomDocument;
+class QXmlStreamReader;
 
 /** @addtogroup engine_functions Functions
  * @{
@@ -121,11 +122,6 @@ public:
      */
     bool moveStep(int sourceIdx, int destIdx);
 
-    /**
-     * Clear the chaser's list of steps
-     */
-    void clear();
-
     /** Get the Chaser steps number */
     int stepsCount();
 
@@ -143,10 +139,10 @@ public:
      */
     QList <ChaserStep> steps() const;
 
-    /** Set the Chaser total duration in milliseconds */
+    /** @reimpl */
     void setTotalDuration(quint32 msec);
 
-    /** Get the Chaser total duration in milliseconds */
+    /** @reimpl */
     quint32 totalDuration();
 
 public slots:
@@ -236,10 +232,11 @@ private:
      *********************************************************************/
 public:
     enum SpeedMode {
-        Default, //! Use step function's own speed setting
+        Default = 0, //! Use step function's own speed setting
         Common,  //! Impose a common chaser-specific speed to all steps
         PerStep  //! Impose a step-specific speed to each step
     };
+    Q_ENUMS(SpeedMode)
 
     void setFadeInMode(SpeedMode mode);
     SpeedMode fadeInMode() const;
@@ -262,11 +259,11 @@ private:
      * Save & Load
      *********************************************************************/
 public:
-    /** Save this function to an XML document */
-    bool saveXML(QDomDocument* doc, QDomElement* wksp_root);
+    /** @reimpl */
+    bool saveXML(QXmlStreamWriter *doc);
 
-    /** Load this function contents from an XML document */
-    bool loadXML(const QDomElement& root);
+    /** @reimpl */
+    bool loadXML(QXmlStreamReader &root);
 
     /** @reimp */
     void postLoad();
@@ -320,6 +317,9 @@ private:
     qreal m_startIntensity;
     bool m_hasStartIntensity;
 
+public:
+    virtual bool contains(quint32 functionId);
+
     /*********************************************************************
      * Running
      *********************************************************************/
@@ -336,6 +336,9 @@ private:
 public:
     /** @reimpl */
     void preRun(MasterTimer* timer);
+
+    /** @reimpl */
+    void setPause(bool enable);
 
     /** @reimpl */
     void write(MasterTimer* timer, QList<Universe *> universes);

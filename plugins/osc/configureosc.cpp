@@ -18,10 +18,11 @@
 */
 
 #include <QTreeWidgetItem>
+#include <QMessageBox>
 #include <QComboBox>
+#include <QLineEdit>
 #include <QSpinBox>
 #include <QLabel>
-#include <QString>
 #include <QDebug>
 
 #include "configureosc.h"
@@ -32,6 +33,10 @@
 #define KMapColumnInputPort     2
 #define KMapColumnOutputAddress 3
 #define KMapColumnOutputPort    4
+
+#define PROP_UNIVERSE (Qt::UserRole + 0)
+#define PROP_LINE (Qt::UserRole + 1)
+#define PROP_TYPE (Qt::UserRole + 2)
 
 /*****************************************************************************
  * Initialization
@@ -68,7 +73,7 @@ void ConfigureOSC::fillMappingTree()
         if (controller == NULL)
             continue;
 
-        qDebug() << "[ArtNet] controller IP" << controller->getNetworkIP() << "type:" << controller->type();
+        qDebug() << "[ArtNet] controller IP" << controller->getNetworkIP().toString() << "type:" << controller->type();
         if ((controller->type() & OSCController::Input) && inputItem == NULL)
         {
             inputItem = new QTreeWidgetItem(m_uniMapTree);
@@ -84,16 +89,16 @@ void ConfigureOSC::fillMappingTree()
         foreach(quint32 universe, controller->universesList())
         {
             UniverseInfo *info = controller->getUniverseInfo(universe);
-            QString networkIP = controller->getNetworkIP();
+            QString networkIP = controller->getNetworkIP().toString();
             QString baseIP = networkIP.mid(0, networkIP.lastIndexOf(".") + 1);
             baseIP.append("1");
 
             if (info->type & OSCController::Input)
             {
                 QTreeWidgetItem *item = new QTreeWidgetItem(inputItem);
-                item->setData(KMapColumnInterface, Qt::UserRole, universe);
-                item->setData(KMapColumnInterface, Qt::UserRole + 1, controller->line());
-                item->setData(KMapColumnInterface, Qt::UserRole + 2, OSCController::Input);
+                item->setData(KMapColumnInterface, PROP_UNIVERSE, universe);
+                item->setData(KMapColumnInterface, PROP_LINE, controller->line());
+                item->setData(KMapColumnInterface, PROP_TYPE, OSCController::Input);
                 item->setText(KMapColumnInterface, networkIP);
                 item->setText(KMapColumnUniverse, QString::number(universe + 1));
 
@@ -102,7 +107,7 @@ void ConfigureOSC::fillMappingTree()
                 inSpin->setValue(info->inputPort);
                 m_uniMapTree->setItemWidget(item, KMapColumnInputPort, inSpin);
 
-                if (info->feedbackAddress == QHostAddress::LocalHost)
+                if (controller->getNetworkIP() == QHostAddress::LocalHost)
                 {
                     // localhost (127.0.0.1) does not need configuration
                     item->setText(KMapColumnOutputAddress, info->feedbackAddress.toString());
@@ -111,9 +116,9 @@ void ConfigureOSC::fillMappingTree()
                 {
                     QWidget *IPwidget;
                     if (info->feedbackAddress == QHostAddress::Null)
-                        IPwidget = createIPWidget(baseIP);
+                        IPwidget = new QLineEdit(baseIP);
                     else
-                        IPwidget = createIPWidget(info->feedbackAddress.toString());
+                        IPwidget = new QLineEdit(info->feedbackAddress.toString());
                     m_uniMapTree->setItemWidget(item, KMapColumnOutputAddress, IPwidget);
                 }
 
@@ -125,14 +130,14 @@ void ConfigureOSC::fillMappingTree()
             if (info->type & OSCController::Output)
             {
                 QTreeWidgetItem *item = new QTreeWidgetItem(outputItem);
-                item->setData(KMapColumnInterface, Qt::UserRole, universe);
-                item->setData(KMapColumnInterface, Qt::UserRole + 1, controller->line());
-                item->setData(KMapColumnInterface, Qt::UserRole + 2, OSCController::Output);
+                item->setData(KMapColumnInterface, PROP_UNIVERSE, universe);
+                item->setData(KMapColumnInterface, PROP_LINE, controller->line());
+                item->setData(KMapColumnInterface, PROP_TYPE, OSCController::Output);
 
                 item->setText(KMapColumnInterface, networkIP);
                 item->setText(KMapColumnUniverse, QString::number(universe + 1));
 
-                if (info->outputAddress == QHostAddress::LocalHost)
+                if (controller->getNetworkIP() == QHostAddress::LocalHost)
                 {
                     // localhost (127.0.0.1) does not need configuration
                     item->setText(KMapColumnOutputAddress, info->outputAddress.toString());
@@ -141,9 +146,9 @@ void ConfigureOSC::fillMappingTree()
                 {
                     QWidget *IPwidget;
                     if (info->outputAddress == QHostAddress::Null)
-                        IPwidget = createIPWidget(baseIP);
+                        IPwidget = new QLineEdit(baseIP);
                     else
-                        IPwidget = createIPWidget(info->outputAddress.toString());
+                        IPwidget = new QLineEdit(info->outputAddress.toString());
                     m_uniMapTree->setItemWidget(item, KMapColumnOutputAddress, IPwidget);
                 }
 
@@ -155,31 +160,12 @@ void ConfigureOSC::fillMappingTree()
         }
     }
 
-    m_uniMapTree->resizeColumnToContents(KMapColumnInterface);
-    m_uniMapTree->resizeColumnToContents(KMapColumnUniverse);
-    m_uniMapTree->resizeColumnToContents(KMapColumnInputPort);
-    m_uniMapTree->resizeColumnToContents(KMapColumnOutputAddress);
-    m_uniMapTree->resizeColumnToContents(KMapColumnOutputPort);
+    m_uniMapTree->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
-QWidget *ConfigureOSC::createIPWidget(QString ip)
+void ConfigureOSC::showIPAlert(QString ip)
 {
-    QWidget* widget = new QWidget(this);
-    widget->setLayout(new QHBoxLayout);
-    widget->layout()->setContentsMargins(0, 0, 0, 0);
-
-    QString baseIP = ip.mid(0, ip.lastIndexOf(".") + 1);
-    QString finalIP = ip.mid(ip.lastIndexOf(".") + 1);
-
-    QLabel *label = new QLabel(baseIP, this);
-    QSpinBox *spin = new QSpinBox(this);
-    spin->setRange(1, 255);
-    spin->setValue(finalIP.toInt());
-
-    widget->layout()->addWidget(label);
-    widget->layout()->addWidget(spin);
-
-    return widget;
+    QMessageBox::critical(this, tr("Invalid IP"), tr("%1 is not a valid IP.\nPlease fix it before confirming.").arg(ip));
 }
 
 /*****************************************************************************
@@ -194,65 +180,43 @@ void ConfigureOSC::accept()
         for(int c = 0; c < topItem->childCount(); c++)
         {
             QTreeWidgetItem *item = topItem->child(c);
-            if (item->data(KMapColumnInterface, Qt::UserRole).isValid() == false)
+            if (item->data(KMapColumnInterface, PROP_UNIVERSE).isValid() == false)
                 continue;
 
-            quint32 universe = item->data(KMapColumnInterface, Qt::UserRole).toUInt();
-            quint32 line = item->data(KMapColumnInterface, Qt::UserRole + 1).toUInt();
-            OSCController::Type type = OSCController::Type(item->data(KMapColumnInterface, Qt::UserRole + 2).toInt());
+            quint32 universe = item->data(KMapColumnInterface, PROP_UNIVERSE).toUInt();
+            quint32 line = item->data(KMapColumnInterface, PROP_LINE).toUInt();
+            OSCController::Type type = OSCController::Type(item->data(KMapColumnInterface, PROP_TYPE).toInt());
             QLCIOPlugin::Capability cap = QLCIOPlugin::Input;
             if (type == OSCController::Output)
                 cap = QLCIOPlugin::Output;
 
             QSpinBox *inSpin = qobject_cast<QSpinBox*>(m_uniMapTree->itemWidget(item, KMapColumnInputPort));
             if (inSpin != NULL)
-            {
-                if ((quint32)inSpin->value() != 7700 + universe)
-                    m_plugin->setParameter(universe, line, cap, OSC_INPUTPORT, inSpin->value());
-                else
-                    m_plugin->unSetParameter(universe, line, cap, OSC_INPUTPORT);
-            }
+                m_plugin->setParameter(universe, line, cap, OSC_INPUTPORT, inSpin->value());
 
-            QWidget *ipWidget = m_uniMapTree->itemWidget(item, KMapColumnOutputAddress);
-            if (ipWidget != NULL)
+            QLineEdit *ipEdit = qobject_cast<QLineEdit*>(m_uniMapTree->itemWidget(item, KMapColumnOutputAddress));
+            if (ipEdit != NULL)
             {
-                QSpinBox *spin = qobject_cast<QSpinBox*>(ipWidget->layout()->itemAt(1)->widget());
-                if (spin != NULL)
+                QHostAddress newHostAddress(ipEdit->text());
+                if (newHostAddress.isNull() && ipEdit->text().size() > 0)
                 {
-                    if (type == OSCController::Input)
-                    {
-                        if (spin->value() != 1)
-                            m_plugin->setParameter(universe, line, QLCIOPlugin::Output, OSC_FEEDBACKIP, spin->value());
-                        else
-                            m_plugin->unSetParameter(universe, line, QLCIOPlugin::Output, OSC_FEEDBACKIP);
-                    }
-                    else
-                    {
-                        if (spin->value() != 1)
-                            m_plugin->setParameter(universe, line, cap, OSC_OUTPUTIP, spin->value());
-                        else
-                            m_plugin->unSetParameter(universe, line, cap, OSC_OUTPUTIP);
-                    }
+                    showIPAlert(ipEdit->text());
+                    return;
                 }
+
+                if (type == OSCController::Input)
+                    m_plugin->setParameter(universe, line, QLCIOPlugin::Output, OSC_FEEDBACKIP, newHostAddress.toString());
+                else
+                    m_plugin->setParameter(universe, line, cap, OSC_OUTPUTIP, newHostAddress.toString());
             }
 
             QSpinBox *outSpin = qobject_cast<QSpinBox*>(m_uniMapTree->itemWidget(item, KMapColumnOutputPort));
             if (outSpin != NULL)
             {
                 if (type == OSCController::Input)
-                {
-                    if ((quint32)outSpin->value() != 9000 + universe)
-                        m_plugin->setParameter(universe, line, QLCIOPlugin::Output, OSC_FEEDBACKPORT, outSpin->value());
-                    else
-                        m_plugin->unSetParameter(universe, line, QLCIOPlugin::Output, OSC_FEEDBACKPORT);
-                }
+                    m_plugin->setParameter(universe, line, QLCIOPlugin::Output, OSC_FEEDBACKPORT, outSpin->value());
                 else
-                {
-                    if ((quint32)outSpin->value() != 9000 + universe)
-                        m_plugin->setParameter(universe, line, cap, OSC_OUTPUTPORT, outSpin->value());
-                    else
-                        m_plugin->unSetParameter(universe, line, cap, OSC_OUTPUTPORT);
-                }
+                    m_plugin->setParameter(universe, line, cap, OSC_OUTPUTPORT, outSpin->value());
             }
         }
     }

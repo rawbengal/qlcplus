@@ -17,8 +17,8 @@
   limitations under the License.
 */
 
-#include <QDomDocument>
-#include <QDomElement>
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <QDebug>
 
 #include "rgbaudio.h"
@@ -142,8 +142,6 @@ RGBMap RGBAudio::rgbMap(const QSize& size, uint rgb, int step)
     {
         m_bandsNumber = size.width();
         qDebug() << "[RGBAudio] set" << m_bandsNumber << "bars";
-        if (m_audioInput->isInitialized() == false)
-            m_audioInput->initialize(44100, 1, 2048);
         m_audioInput->registerBandsNumber(m_bandsNumber);
         return map;
     }
@@ -224,31 +222,32 @@ int RGBAudio::acceptColors() const
     return 2; // start and end colors accepted
 }
 
-bool RGBAudio::loadXML(const QDomElement& root)
+bool RGBAudio::loadXML(QXmlStreamReader &root)
 {
-    if (root.tagName() != KXMLQLCRGBAlgorithm)
+    if (root.name() != KXMLQLCRGBAlgorithm)
     {
         qWarning() << Q_FUNC_INFO << "RGB Algorithm node not found";
         return false;
     }
 
-    if (root.attribute(KXMLQLCRGBAlgorithmType) != KXMLQLCRGBAudio)
+    if (root.attributes().value(KXMLQLCRGBAlgorithmType).toString() != KXMLQLCRGBAudio)
     {
         qWarning() << Q_FUNC_INFO << "RGB Algorithm is not Audio";
         return false;
     }
 
+    root.skipCurrentElement();
+
     return true;
 }
 
-bool RGBAudio::saveXML(QDomDocument* doc, QDomElement* mtx_root) const
+bool RGBAudio::saveXML(QXmlStreamWriter *doc) const
 {
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(mtx_root != NULL);
 
-    QDomElement root = doc->createElement(KXMLQLCRGBAlgorithm);
-    root.setAttribute(KXMLQLCRGBAlgorithmType, KXMLQLCRGBAudio);
-    mtx_root->appendChild(root);
+    doc->writeStartElement(KXMLQLCRGBAlgorithm);
+    doc->writeAttribute(KXMLQLCRGBAlgorithmType, KXMLQLCRGBAudio);
+    doc->writeEndElement();
 
     return true;
 }

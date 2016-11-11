@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   fixture.h
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -28,8 +29,6 @@
 
 #include "qlcchannel.h"
 
-class QDomDocument;
-class QDomElement;
 class QString;
 
 class QLCFixtureDefCache;
@@ -153,14 +152,6 @@ public:
      * @return Fixture type
      */
     QString type();
-
-    /**
-     * Check, whether the fixture is a dimmer-type fixture (i.e. without
-     * a definition).
-     *
-     * @return true if the fixture is a dimmer, otherwise false
-     */
-    bool isDimmer() const;
 
     /*********************************************************************
      * Universe
@@ -316,9 +307,6 @@ public:
     ChannelModifier *channelModifier(quint32 idx);
 
 protected:
-    /** Create a generic intensity channel */
-    void createGenericChannel();
-
     /** Find and store channel numbers (pan, tilt, intensity) */
     void findChannels();
 
@@ -328,9 +316,6 @@ protected:
 
     /** Number of channels (ONLY for dimmer fixtures!) */
     quint32 m_channels;
-
-    /** Generic intensity channel for dimmer fixtures */
-    QLCChannel* m_genericChannel;
 
     /** List holding the channels indices to exlude from fade transitions */
     QList<int> m_excludeFadeIndices;
@@ -427,6 +412,16 @@ protected:
     QLCFixtureMode* m_fixtureMode;
 
     /*********************************************************************
+     * Generic Dimmer
+     *********************************************************************/
+public:
+    /** Creates and returns a definition for a generic dimmer pack */
+    QLCFixtureDef *genericDimmerDef(int channels);
+
+    /** Creates and returns a fixture mode for a generic dimmer pack */
+    QLCFixtureMode *genericDimmerMode(QLCFixtureDef *def, int channels);
+
+    /*********************************************************************
      * Generic RGB panel
      *********************************************************************/
 public:
@@ -457,7 +452,7 @@ public:
      * @param root The Fixture node to load from
      * @param doc The doc that owns all fixtures
      */
-    static bool loader(const QDomElement& root, Doc* doc);
+    static bool loader(QXmlStreamReader &root, Doc* doc);
 
     /**
      * Load a fixture's contents from the given XML node.
@@ -465,7 +460,7 @@ public:
      * @param root An XML subtree containing a single fixture instance
      * @return true if the fixture was loaded successfully, otherwise false
      */
-    bool loadXML(const QDomElement& root, Doc* doc,
+    bool loadXML(QXmlStreamReader &xmlDoc, Doc* doc,
                  const QLCFixtureDefCache* fixtureDefCache);
 
     /**
@@ -475,7 +470,7 @@ public:
      * @param doc The master XML document to save to.
      * @param wksp_root The workspace root element
      */
-    bool saveXML(QDomDocument* doc, QDomElement* wksp_root) const;
+    bool saveXML(QXmlStreamWriter *doc) const;
 
     /*********************************************************************
      * Status

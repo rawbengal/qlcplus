@@ -17,6 +17,8 @@
   limitations under the License.
 */
 
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <QTreeWidgetItem>
 #include <QTextBrowser>
 #include <QVBoxLayout>
@@ -34,7 +36,6 @@
 #include <QIcon>
 #include <QMenu>
 #include <QtGui>
-#include <QtXml>
 
 #include "qlcfixturemode.h"
 #include "qlcfixturedef.h"
@@ -313,6 +314,7 @@ void FixtureManager::slotFixtureGroupChanged(quint32 id)
     FixtureGroup* grp = m_doc->fixtureGroup(id);
     Q_ASSERT(grp != NULL);
     m_fixtures_tree->updateGroupItem(item, grp);
+    updateGroupMenu();
 }
 
 void FixtureManager::slotDocLoaded()
@@ -436,9 +438,7 @@ void FixtureManager::updateView()
     updateGroupMenu();
     slotModeChanged(m_doc->mode());
 
-    m_fixtures_tree->resizeColumnToContents(KColumnName);
-    m_fixtures_tree->resizeColumnToContents(KColumnAddress);
-    m_fixtures_tree->resizeColumnToContents(KColumnUniverse);
+    m_fixtures_tree->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 void FixtureManager::updateChannelsGroupView()
@@ -483,8 +483,7 @@ void FixtureManager::updateChannelsGroupView()
     m_importAction->setEnabled(false);
     m_remapAction->setEnabled(false);
 
-    m_channel_groups_tree->resizeColumnToContents(KColumnName);
-    m_channel_groups_tree->resizeColumnToContents(KColumnChannels);
+    m_channel_groups_tree->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 void FixtureManager::fixtureSelected(quint32 id)
@@ -709,9 +708,7 @@ void FixtureManager::slotTabChanged(int index)
 
 void FixtureManager::slotFixtureItemExpanded()
 {
-    m_fixtures_tree->resizeColumnToContents(KColumnName);
-    m_fixtures_tree->resizeColumnToContents(KColumnAddress);
-    m_fixtures_tree->resizeColumnToContents(KColumnUniverse);
+    m_fixtures_tree->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 void FixtureManager::selectGroup(quint32 id)
@@ -930,6 +927,14 @@ void FixtureManager::addFixture()
     if (af.exec() == QDialog::Rejected)
         return;
 
+    if (af.invalidAddress())
+    {
+        QMessageBox msg(QMessageBox::Critical, tr("Error"),
+                tr("Please enter a valid address"), QMessageBox::Ok);
+        msg.exec();
+        return;
+    }
+
     quint32 latestFxi = Fixture::invalidId();
 
     QString name = af.name();
@@ -991,12 +996,18 @@ void FixtureManager::addFixture()
         fxi->setUniverse(universe);
         fxi->setName(modname);
         /* Set a fixture definition & mode if they were
-           selected. Otherwise assign channels to a generic
-           dimmer. */
+           selected. Otherwise create a fixture definition
+           and mode for a generic dimmer. */
         if (fixtureDef != NULL && mode != NULL)
+        {
             fxi->setFixtureDefinition(fixtureDef, mode);
+        }
         else
-            fxi->setChannels(channels);
+        {
+            QLCFixtureDef* genericDef = fxi->genericDimmerDef(channels);
+            QLCFixtureMode* genericMode = fxi->genericDimmerMode(genericDef, channels);
+            fxi->setFixtureDefinition(genericDef, genericMode);
+        }
 
         m_doc->addFixture(fxi);
         latestFxi = fxi->id();
@@ -1258,11 +1269,6 @@ void FixtureManager::editFixtureProperties()
         model = fxi->fixtureDef()->model();
         mode = fxi->fixtureMode()->name();
     }
-    else
-    {
-        manuf = KXMLFixtureGeneric;
-        model = KXMLFixtureGeneric;
-    }
 
     AddFixture af(this, m_doc, fxi);
     af.setWindowTitle(tr("Change fixture properties"));
@@ -1270,18 +1276,42 @@ void FixtureManager::editFixtureProperties()
     {
         if (af.invalidAddress() == false)
         {
+            bool changed = false;
+
             fxi->blockSignals(true);
             if (fxi->name() != af.name())
+            {
                 fxi->setName(af.name());
+                changed = true;
+            }
             if (fxi->universe() != af.universe())
+            {
                 fxi->setUniverse(af.universe());
+                changed = true;
+            }
             if (fxi->address() != af.address())
+            {
                 fxi->setAddress(af.address());
+                changed = true;
+            }
             fxi->blockSignals(false);
 
             if (af.fixtureDef() != NULL && af.mode() != NULL)
             {
-                fxi->setFixtureDefinition(af.fixtureDef(), af.mode());
+                if (af.fixtureDef()->manufacturer() == KXMLFixtureGeneric &&
+                    af.fixtureDef()->model() == KXMLFixtureGeneric)
+                {
+                    if (fxi->channels() != af.channels())
+                    {
+                        QLCFixtureDef* fixtureDef = fxi->genericDimmerDef(af.channels());
+                        QLCFixtureMode* fixtureMode = fxi->genericDimmerMode(fixtureDef, af.channels());
+                        fxi->setFixtureDefinition(fixtureDef, fixtureMode);
+                    }
+                }
+                else
+                {
+                    fxi->setFixtureDefinition(af.fixtureDef(), af.mode());
+                }
             }
             else
             {
@@ -1289,6 +1319,10 @@ void FixtureManager::editFixtureProperties()
                 fxi->setFixtureDefinition(NULL, NULL);
                 fxi->setChannels(af.channels());
             }
+
+            // Emit changed signal
+            if (changed)
+                fxi->setID(fxi->id());
 
             updateView();
             slotSelectionChanged();
@@ -1532,68 +1566,85 @@ void FixtureManager::slotImport()
 {
     QString fileName = createDialog(true);
 
-    QDomDocument doc(QLCFile::readXML(fileName));
-    if (doc.isNull() == false)
+    QXmlStreamReader *doc = QLCFile::getXMLReader(fileName);
+    if (doc == NULL || doc->device() == NULL || doc->hasError())
     {
-        if (doc.doctype().name() == KXMLQLCFixturesList)
+        qWarning() << Q_FUNC_INFO << "Unable to read from" << fileName;
+        return;
+    }
+
+    while (!doc->atEnd())
+    {
+        if (doc->readNext() == QXmlStreamReader::DTD)
+            break;
+    }
+    if (doc->hasError())
+    {
+        QLCFile::releaseXMLReader(doc);
+        return;
+    }
+
+    if (doc->dtdName() == KXMLQLCFixturesList)
+    {
+        doc->readNextStartElement();
+        if (doc->name() != KXMLQLCFixturesList)
         {
-            QDomElement root = doc.documentElement();
-            if (root.tagName() != KXMLQLCFixturesList)
-            {
-                qWarning() << Q_FUNC_INFO << "Fixture Definition node not found";
-                return;
-            }
-            QDomNode node = root.firstChild();
-            while (node.isNull() == false)
-            {
-                QDomElement tag = node.toElement();
+            qWarning() << Q_FUNC_INFO << "Fixture Definition node not found";
+            QLCFile::releaseXMLReader(doc);
+            return;
+        }
 
-                if (tag.tagName() == KXMLFixture)
+        while (doc->readNextStartElement())
+        {
+            if (doc->name() == KXMLFixture)
+            {
+                Fixture* fxi = new Fixture(m_doc);
+                Q_ASSERT(fxi != NULL);
+
+                if (fxi->loadXML(*doc, m_doc, m_doc->fixtureDefCache()) == true)
                 {
-                    Fixture* fxi = new Fixture(m_doc);
-                    Q_ASSERT(fxi != NULL);
-
-                    if (fxi->loadXML(tag, m_doc, m_doc->fixtureDefCache()) == true)
+                    if (m_doc->addFixture(fxi /*, fxi->id()*/) == true)
                     {
-                        if (m_doc->addFixture(fxi /*, fxi->id()*/) == true)
-                        {
-                            /* Success */
-                            qWarning() << Q_FUNC_INFO << "Fixture" << fxi->name() << "successfully created.";
-                        }
-                        else
-                        {
-                            /* Doc is full */
-                            qWarning() << Q_FUNC_INFO << "Fixture" << fxi->name() << "cannot be created.";
-                            delete fxi;
-                        }
+                        /* Success */
+                        qWarning() << Q_FUNC_INFO << "Fixture" << fxi->name() << "successfully created.";
                     }
                     else
                     {
-                        qWarning() << Q_FUNC_INFO << "Fixture" << fxi->name() << "cannot be loaded.";
+                        /* Doc is full */
+                        qWarning() << Q_FUNC_INFO << "Fixture" << fxi->name() << "cannot be created.";
                         delete fxi;
                     }
                 }
-                else if (tag.tagName() == KXMLQLCFixtureGroup)
+                else
                 {
-                    FixtureGroup* grp = new FixtureGroup(m_doc);
-                    Q_ASSERT(grp != NULL);
-
-                    if (grp->loadXML(tag) == true)
-                    {
-                        m_doc->addFixtureGroup(grp, grp->id());
-                    }
-                    else
-                    {
-                        qWarning() << Q_FUNC_INFO << "FixtureGroup" << grp->name() << "cannot be loaded.";
-                        delete grp;
-                    }
+                    qWarning() << Q_FUNC_INFO << "Fixture" << fxi->name() << "cannot be loaded.";
+                    delete fxi;
                 }
-
-                node = node.nextSibling();
             }
-            updateView();
+            else if (doc->name() == KXMLQLCFixtureGroup)
+            {
+                FixtureGroup* grp = new FixtureGroup(m_doc);
+                Q_ASSERT(grp != NULL);
+
+                if (grp->loadXML(*doc) == true)
+                {
+                    m_doc->addFixtureGroup(grp, grp->id());
+                }
+                else
+                {
+                    qWarning() << Q_FUNC_INFO << "FixtureGroup" << grp->name() << "cannot be loaded.";
+                    delete grp;
+                }
+            }
+            else
+            {
+                qWarning() << Q_FUNC_INFO << "Unknown label tag:" << doc->name().toString();
+                doc->skipCurrentElement();
+            }
         }
+        updateView();
     }
+    QLCFile::releaseXMLReader(doc);
 }
 
 void FixtureManager::slotExport()
@@ -1604,40 +1655,29 @@ void FixtureManager::slotExport()
     if (file.open(QIODevice::WriteOnly) == false)
         return;
 
-    QDomDocument doc(QLCFile::getXMLHeader(KXMLQLCFixturesList));
+    QXmlStreamWriter doc(&file);
+    doc.setAutoFormatting(true);
+    doc.setAutoFormattingIndent(1);
+    doc.setCodec("UTF-8");
+    QLCFile::writeXMLHeader(&doc, KXMLQLCFixturesList);
 
-    if (doc.isNull() == false)
+    QListIterator <Fixture*> fxit(m_doc->fixtures());
+    while (fxit.hasNext() == true)
     {
-        QDomElement root;
-        QDomElement tag;
-        QDomText text;
-
-        /* Create a text stream for the file */
-        QTextStream stream(&file);
-
-        /* THE MASTER XML ROOT NODE */
-        root = doc.documentElement();
-
-        QListIterator <Fixture*> fxit(m_doc->fixtures());
-        while (fxit.hasNext() == true)
-        {
-            Fixture* fxi(fxit.next());
-            Q_ASSERT(fxi != NULL);
-            fxi->saveXML(&doc, &root);
-        }
-
-        QListIterator <FixtureGroup*>grpit(m_doc->fixtureGroups());
-        while (grpit.hasNext() == true)
-        {
-            FixtureGroup *fxgrp(grpit.next());
-            Q_ASSERT(fxgrp != NULL);
-            fxgrp->saveXML(&doc, &root);
-        }
-
-        /* Write the XML document to the stream (=file) */
-        stream << doc.toString() << "\n";
+        Fixture* fxi(fxit.next());
+        Q_ASSERT(fxi != NULL);
+        fxi->saveXML(&doc);
     }
 
+    QListIterator <FixtureGroup*>grpit(m_doc->fixtureGroups());
+    while (grpit.hasNext() == true)
+    {
+        FixtureGroup *fxgrp(grpit.next());
+        Q_ASSERT(fxgrp != NULL);
+        fxgrp->saveXML(&doc);
+    }
+
+    doc.writeEndDocument();
     file.close();
 }
 

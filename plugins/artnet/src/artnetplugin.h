@@ -32,11 +32,12 @@
 
 typedef struct
 {
-    QString IPAddress;
-    QString MACAddress;
+    QNetworkInterface interface;
+    QNetworkAddressEntry address;
     ArtNetController* controller;
 } ArtNetIO;
 
+#define ARTNET_INPUTUNI "inputUni"
 #define ARTNET_OUTPUTIP "outputIP"
 #define ARTNET_OUTPUTUNI "outputUni"
 #define ARTNET_TRANSMITMODE "transmitMode"
@@ -67,6 +68,9 @@ public:
 
     /** @reimp */
     QString pluginInfo();
+
+private:
+    bool requestLine(quint32 line, int retries);
 
     /*********************************************************************
      * Outputs
@@ -116,17 +120,24 @@ public:
     /** @reimp */
     void setParameter(quint32 universe, quint32 line, Capability type, QString name, QVariant value);
 
-    QList<QNetworkAddressEntry> interfaces();
-
     /** Get a list of the available Input/Output lines */
     QList<ArtNetIO> getIOMapping();
 
 private:
-    /** List holding the detected system network interfaces */
-    QList<QNetworkAddressEntry> m_netInterfaces;
-
     /** Map of the ArtNet plugin Input/Output lines */
-    QList<ArtNetIO>m_IOmapping;
+    QList<ArtNetIO> m_IOmapping;
+
+    /*********************************************************************
+     * ArtNet socket
+     *********************************************************************/
+private:
+    QSharedPointer<QUdpSocket> getUdpSocket();
+private slots:
+    void slotReadyRead();
+private:
+    void handlePacket(QByteArray const& datagram, QHostAddress const& senderAddress);
+private:
+    QWeakPointer<QUdpSocket> m_udpSocket;
 };
 
 #endif

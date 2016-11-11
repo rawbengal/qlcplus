@@ -1,4 +1,5 @@
 include(../../../variables.pri)
+include(../../../coverage.pri)
 
 TEMPLATE = lib
 LANGUAGE = C++
@@ -15,7 +16,7 @@ win32:QMAKE_LFLAGS += -shared
 
 # This must be after "TARGET = " and before target installation so that
 # install_name_tool can be run before target installation
-macx:include(../../../macx/nametool.pri)
+macx:include(../../../platforms/macos/nametool.pri)
 
 target.path = $$INSTALLROOT/$$PLUGINDIR
 INSTALLS   += target
@@ -44,3 +45,9 @@ SOURCES += artnetpacketizer.cpp \
            artnetcontroller.cpp \
            artnetplugin.cpp \
            configureartnet.cpp
+
+unix:!macx {
+    metainfo.path   = $$INSTALLROOT/share/appdata/
+    metainfo.files += qlcplus-artnet.metainfo.xml 
+    INSTALLS       += metainfo
+}

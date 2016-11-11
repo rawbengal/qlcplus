@@ -17,77 +17,99 @@
   limitations under the License.
 */
 
-import QtQuick 2.3
-import "FixtureUtils.js" as FxUtils
+import QtQuick 2.0
+import "."
 
-Flickable {
+Flickable
+{
     id: universeGridView
     anchors.fill: parent
     anchors.margins: 20
+    boundsBehavior: Flickable.StopAtBounds
 
-    //contentWidth: destGrid.width
-    //contentHeight: destGrid.height
-    contentHeight: destGrid.height + uniText.height
+    contentHeight: uniGrid.height + uniText.height
 
     property int uniStartAddr: viewUniverseCombo.currentIndex * 512
-    property int cellWidth: width / destGrid.columns
 
-    RobotoText {
+    function hasSettings()
+    {
+        return false;
+    }
+
+    RobotoText
+    {
         id: uniText
-        height: 45
+        height: UISettings.textSizeDefault * 2
         labelColor: "#ccc"
         label: viewUniverseCombo.currentText
-        fontSize: 30
+        fontSize: UISettings.textSizeDefault * 1.5
         fontBold: true
     }
 
-    Grid {
-        id: destGrid
-
-        //anchors.fill: parent
+    GridEditor
+    {
+        id: uniGrid
         anchors.top: uniText.bottom
         width: parent.width
-        //opacity: 0.5
-        columns: 24
 
-        Repeater {
-            model: 512
-            delegate: //DropTile { colorKey: "red" }
-                DropArea {
-                    id: dragTarget
+        showIndices: 512
+        gridSize: Qt.size(24, 22)
+        gridData: fixtureManager.fixturesMap
 
-                    //property string colorKey
-                    property alias dropProxy: dragTarget
+        onPressed:
+        {
+            universeGridView.interactive = false
+            var uniAddress = (yPos * gridSize.width) + xPos
+            console.log("Fixture pressed at address: " + uniAddress)
+            setSelectionData(fixtureManager.fixtureSelection(uniAddress))
+        }
 
-                    width: cellWidth
-                    height: width
+        onReleased:
+        {
+            if (currentFixtureID === -1)
+                return;
+            var uniAddress = (yPos * gridSize.width) + xPos
+            fixtureManager.moveFixture(currentFixtureID, uniAddress + offset)
+            universeGridView.interactive = true
+        }
 
-                    Rectangle {
-                        id: dropRectangle
+        onDragEntered:
+        {
+            var channels = dragEvent.source.channels
+            console.log("Drag entered. Channels: " + channels)
+            var uniAddress = (yPos * gridSize.width) + xPos
+            var tmp = []
+            for (var q = 0; q < dragEvent.source.quantity; q++)
+            {
+                for (var i = 0; i < channels; i++)
+                    tmp.push(uniAddress + i)
+                uniAddress += channels + dragEvent.source.gap
+            }
+            setSelectionData(tmp)
+        }
 
-                        anchors.fill: parent
-                        border.width: 1
-                        border.color: "black"
-                        color: FxUtils.getColorForAddress(index)
+        onDragPositionChanged:
+        {
+            var uniAddress = (yPos * gridSize.width) + xPos
+            dragEvent.source.address = uniAddress
+            var freeAddr = fixtureBrowser.availableChannel(contextManager.universeFilter, dragEvent.source.channels,
+                                                           dragEvent.source.quantity,
+                                                           dragEvent.source.gap, uniAddress)
+            if (freeAddr === uniAddress)
+                validSelection = true
+            else
+                validSelection = false
+        }
 
-                        Text {
-                            anchors.fill: parent
-                            anchors.margins: 2
-                            text: index + 1
-                            font.pixelSize: height / 3
-                        }
+        onPositionChanged:
+        {
+            var uniAddress = (yPos * gridSize.width) + xPos
+            var freeAddr = fixtureBrowser.availableChannel(currentFixtureID, uniAddress)
 
-                        states: [
-                            State {
-                                when: dragTarget.containsDrag
-                                PropertyChanges {
-                                    target: dropRectangle
-                                    color: "green"
-                                }
-                            }
-                        ]
-                    }
-                }
+            if (freeAddr === uniAddress)
+                validSelection = true
+            else
+                validSelection = false
         }
     }
 }

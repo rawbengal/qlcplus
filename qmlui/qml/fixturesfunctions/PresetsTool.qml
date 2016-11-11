@@ -20,12 +20,14 @@
 import QtQuick 2.3
 import com.qlcplus.classes 1.0
 
+import "."
+
 Rectangle
 {
     id: toolRoot
-    width: 360
-    height: 350
-    color: "#333"
+    width: UISettings.bigItemHeight * 3
+    height: UISettings.bigItemHeight * 3
+    color: UISettings.bgMedium
     border.color: "#666"
     border.width: 2
     clip: true
@@ -38,7 +40,9 @@ Rectangle
         if (visible === true)
         {
             selectedIndex = -1
+            prList.model = null // force reload
             prList.model = goboPresets ? fixtureManager.goboChannels : fixtureManager.colorWheelChannels
+            capRepeater.model = null // force reload
             capRepeater.model = fixtureManager.presetCapabilities(selectedIndex)
         }
     }
@@ -48,14 +52,13 @@ Rectangle
     {
         id: presetToolBar
         width: parent.width
-        height: 50
+        height: UISettings.iconSizeDefault
         z: 10
         clip: true
         gradient: Gradient
         {
-            id: ffMenuGradient
-            GradientStop { position: 0 ; color: "#222" }
-            GradientStop { position: 1 ; color: "#111" }
+            GradientStop { position: 0; color: UISettings.toolbarStartSub }
+            GradientStop { position: 1; color: UISettings.toolbarEnd }
         }
 
         ListView
@@ -69,9 +72,9 @@ Rectangle
                 Rectangle
                 {
                     id: delRoot
-                    width: 150
+                    width: UISettings.bigItemHeight
                     height: presetToolBar.height
-                    color: "#333"
+                    color: prMouseArea.pressed ? UISettings.bgLight : UISettings.bgMedium
                     border.width: 1
                     border.color: "#666"
 
@@ -89,15 +92,15 @@ Rectangle
                         width: parent.width - 2
                         height: parent.height
                         label: modelData.name
-                        fontSize: 10
+                        fontSize: UISettings.textSizeDefault * 0.75
                         wrapText: true
                     }
                     MouseArea
                     {
+                        id: prMouseArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        onEntered: delRoot.color = "#555"
-                        onExited: delRoot.color = "#333"
+
                         onClicked:
                         {
                             selectedIndex = presetIdx

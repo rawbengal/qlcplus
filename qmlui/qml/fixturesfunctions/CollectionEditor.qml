@@ -19,8 +19,10 @@
 
 import QtQuick 2.0
 import QtQuick.Layouts 1.1
+import QtQuick.Controls 1.2
 
 import com.qlcplus.classes 1.0
+import "."
 
 Rectangle
 {
@@ -29,154 +31,239 @@ Rectangle
     color: "transparent"
 
     property int functionID: -1
-    property Collection collection
 
-    onFunctionIDChanged:
+    signal requestView(int ID, string qmlSrc)
+
+    ModelSelector
     {
-        collection = functionManager.getFunction(functionID)
-    }
-
-    Loader
-    {
-        id: funcMgrLoader
-        width: 0
-        height: ceContainer.height
-        source: ""
-
-        Rectangle
+        id: ceSelector
+        onItemsCountChanged:
         {
-            width: 2
-            height: parent.height
-            x: parent.width - 2
-            color: "#444"
+            console.log("Collection Editor selected items changed !")
         }
     }
 
-    Column
+    SplitView
     {
-        x: funcMgrLoader.width
-        Rectangle
+        anchors.fill: parent
+        Loader
         {
-            color: "#333"
-            width: funcMgrLoader.width ? ceContainer.width / 2 : ceContainer.width
-            height: 40
+            id: funcMgrLoader
+            visible: width
+            width: 0
+            height: ceContainer.height
+            source: ""
 
             Rectangle
             {
-                id: backBox
-                width: 40
-                height: 40
-                color: "transparent"
+                width: 2
+                height: parent.height
+                x: parent.width - 2
+                color: UISettings.bgLighter
+            }
+        }
 
-                Image
+        Column
+        {
+            Layout.fillWidth: true
+
+            Rectangle
+            {
+                color: UISettings.bgMedium
+                //width: funcMgrLoader.width ? ceContainer.width / 2 : ceContainer.width
+                width: parent.width
+                height: UISettings.iconSizeMedium
+                z: 2
+
+                Rectangle
                 {
-                    id: leftArrow
-                    anchors.fill: parent
-                    rotation: 180
-                    source: "qrc:/arrow-right.svg"
-                    sourceSize: Qt.size(width, height)
+                    id: backBox
+                    width: UISettings.iconSizeMedium
+                    height: width
+                    color: "transparent"
+
+                    Image
+                    {
+                        id: leftArrow
+                        anchors.fill: parent
+                        rotation: 180
+                        source: "qrc:/arrow-right.svg"
+                        sourceSize: Qt.size(width, height)
+                    }
+                    MouseArea
+                    {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onEntered: backBox.color = "#666"
+                        onExited: backBox.color = "transparent"
+                        onClicked:
+                        {
+                            if (funcMgrLoader.width)
+                            {
+                                funcMgrLoader.source = "";
+                                funcMgrLoader.width = 0;
+                                rightSidePanel.width = rightSidePanel.width / 2
+                            }
+
+                            functionManager.setEditorFunction(-1)
+                            requestView(-1, "qrc:/FunctionManager.qml")
+                        }
+                    }
                 }
-                MouseArea
+                TextInput
                 {
-                    anchors.fill: parent
-                    hoverEnabled: true
+                    id: cNameEdit
+                    x: leftArrow.width + 5
+                    height: UISettings.iconSizeMedium
+                    width: ceContainer.width - backBox.width - addFunc.width - removeFunc.width
+                    color: UISettings.fgMain
+                    clip: true
+                    text: collectionEditor.functionName
+                    verticalAlignment: TextInput.AlignVCenter
+                    font.family: UISettings.robotoFontName
+                    font.pixelSize: UISettings.textSizeDefault
+                    selectByMouse: true
+                    Layout.fillWidth: true
+                    onTextChanged: collectionEditor.functionName = text
+                }
+
+                IconButton
+                {
+                    id: addFunc
+                    x: parent.width - (UISettings.iconSizeMedium * 2) - 10
+                    width: height
+                    height: UISettings.iconSizeMedium
+                    imgSource: "qrc:/add.svg"
+                    checkable: true
+                    tooltip: qsTr("Add a function")
+                    onCheckedChanged:
+                    {
+                        if (checked)
+                        {
+                            rightSidePanel.width += 350
+                            funcMgrLoader.width = 350
+                            funcMgrLoader.source = "qrc:/FunctionManager.qml"
+                        }
+                        else
+                        {
+                            rightSidePanel.width = rightSidePanel.width - funcMgrLoader.width
+                            funcMgrLoader.source = ""
+                            funcMgrLoader.width = 0
+                        }
+                    }
+                }
+
+                IconButton
+                {
+                    id: removeFunc
+                    x: parent.width - UISettings.iconSizeMedium - 5
+                    width: height
+                    height: UISettings.iconSizeMedium
+                    imgSource: "qrc:/remove.svg"
+                    tooltip: qsTr("Remove the selected function")
                     onClicked:
                     {
-                        if (funcMgrLoader.width)
+                        actionManager.requestActionPopup(ActionManager.DeleteEditorItems,
+                                                         qsTr("Are you sure you want to remove the selected functions ?"),
+                                                         ActionManager.OK | ActionManager.Cancel,
+                                                         ceSelector.itemsList())
+                    }
+                }
+            }
+
+            ListView
+            {
+                id: cFunctionList
+                width: parent.width //ceContainer.width
+                height: ceContainer.height - UISettings.iconSizeMedium
+                y: UISettings.iconSizeMedium
+                boundsBehavior: Flickable.StopAtBounds
+
+                property int dragInsertIndex: -1
+
+                model: collectionEditor.functionsList
+                delegate:
+                    Item
+                    {
+                        width: cFunctionList.width
+                        height: UISettings.listItemHeight
+
+                        MouseArea
                         {
-                            funcMgrLoader.source = "";
-                            funcMgrLoader.width = 0;
-                            rightSidePanel.width = rightSidePanel.width / 2
+                            id: delegateRoot
+                            width: cFunctionList.width
+                            height: parent.height
+
+                            drag.target: cfDelegate
+                            drag.threshold: height / 2
+
+                            onClicked: ceSelector.selectItem(index, cFunctionList.model, mouse.modifiers & Qt.ControlModifier)
+
+                            onReleased:
+                            {
+                                if (cfDelegate.Drag.target === cfDropArea)
+                                {
+                                    cfDelegate.Drag.drop()
+                                }
+                                else
+                                {
+                                    // return the dragged item to its original position
+                                    parent = delegateRoot
+                                    cfDelegate.x = 0
+                                    cfDelegate.y = 0
+                                }
+                            }
+
+                            CollectionFunctionDelegate
+                            {
+                                id: cfDelegate
+                                width: cFunctionList.width
+                                functionID: model.funcID
+                                isSelected: model.isSelected
+                                indexInList: index
+                                highlightIndex: cFunctionList.dragInsertIndex
+
+                                Drag.active: delegateRoot.drag.active
+                                Drag.source: cfDelegate
+                                Drag.keys: [ "function" ]
+                            }
+                        }
+                    }
+
+                DropArea
+                {
+                    id: cfDropArea
+                    anchors.fill: parent
+                    // accept only functions
+                    keys: [ "function" ]
+
+                    onDropped:
+                    {
+                        console.log("Item dropped here. x: " + drag.x + " y: " + drag.y)
+
+                        /* if the dragging started from a Function Manager,
+                           the property is called funcID */
+                        if (drag.source.hasOwnProperty("funcID"))
+                        {
+                            console.log("Item fID: " + drag.source.funcID)
+                            collectionEditor.addFunction(drag.source.funcID, cFunctionList.dragInsertIndex)
+                        }
+                        else if (drag.source.hasOwnProperty("functionID"))
+                        {
+                            console.log("Item fID: " + drag.source.functionID)
+                            collectionEditor.moveFunction(drag.source.functionID, cFunctionList.dragInsertIndex)
                         }
 
-                        editorLoader.source = "qrc:/FunctionManager.qml"
+                        cFunctionList.dragInsertIndex = -1
                     }
-                    onEntered: backBox.color = "#666"
-                    onExited: backBox.color = "transparent"
-                }
-            }
-            TextInput
-            {
-                id: cNameEdit
-                x: leftArrow.width + 5
-                y: 3
-                height: 40
-                width: ceContainer.width - addFunc.width - removeFunc.width
-                color: "#ffffff"
-                text: collection ? collection.name : ""
-                font.pixelSize: 20
-                Layout.fillWidth: true
-                onTextChanged:
-                {
-                    if (collection)
-                        collection.name = text
-                }
-            }
-
-            IconButton
-            {
-                id: addFunc
-                x: parent.width - 90
-                width: height
-                height: 40
-                imgSource: "qrc:/add.svg"
-                checkable: true
-                tooltip: qsTr("Add a function")
-                onCheckedChanged:
-                {
-                    if (checked)
+                    onPositionChanged:
                     {
-                        rightSidePanel.width = rightSidePanel.width * 2
-                        funcMgrLoader.width = ceContainer.width / 2
-                        funcMgrLoader.source = "qrc:/FunctionManager.qml"
-                    }
-                    else
-                    {
-                        rightSidePanel.width = rightSidePanel.width / 2
-                        funcMgrLoader.source = ""
-                        funcMgrLoader.width = 0
+                        var idx = cFunctionList.indexAt(drag.x, drag.y)
+                        //console.log("Item index:" + idx)
+                        cFunctionList.dragInsertIndex = idx
                     }
                 }
-            }
-
-            IconButton
-            {
-                id: removeFunc
-                x: parent.width - 45
-                width: height
-                height: 40
-                imgSource: "qrc:/remove.svg"
-                tooltip: qsTr("Remove the selected function")
-                onClicked: {   }
-            }
-        }
-
-        ListView
-        {
-            width: ceContainer.width
-            height: ceContainer.height - 40
-            y: 40
-            boundsBehavior: Flickable.StopAtBounds
-            model: collection ? collection.functions : null
-            delegate:
-                CollectionFunctionDelegate
-                {
-                    width: ceContainer.width
-                    functionID: modelData
-                }
-
-            DropArea
-            {
-                anchors.fill: parent
-
-                onDropped:
-                {
-                    console.log("Item dropped here. x: " + drag.x + " y: " + drag.y)
-                    console.log("Item fID: " + drag.source.funcID)
-                    collection.addFunction(drag.source.funcID)
-                }
-                onEntered: console.log("[CollectionEditor] Drag item entered")
-            }
-        }
-    }
+            } // end of ListView
+        } // end of Column
+    } // end of SplitView
 }

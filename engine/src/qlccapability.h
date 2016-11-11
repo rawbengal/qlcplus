@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   qlccapability.h
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -25,9 +26,9 @@
 #include <QColor>
 #include <QList>
 
+class QXmlStreamReader;
+class QXmlStreamWriter;
 class QLCCapability;
-class QDomDocument;
-class QDomElement;
 class QString;
 class QFile;
 
@@ -71,8 +72,6 @@ public:
                   const QColor &color1 = QColor(), const QColor &color2 = QColor(),
                   QObject *parent = 0);
 
-    /** Copy constructor */
-    //QLCCapability(const QLCCapability* cap);
     QLCCapability *createCopy();
 
     /** Destructor */
@@ -121,11 +120,11 @@ protected:
      * Load & Save
      ********************************************************************/
 public:
-    /** Save the capability to a QDomDocument, under the given element */
-    bool saveXML(QDomDocument* doc, QDomElement* root);
+    /** Save the capability into a QXmlStreamWriter */
+    bool saveXML(QXmlStreamWriter *doc);
 
     /** Load capability contents from an XML element */
-    bool loadXML(const QDomElement& root);
+    bool loadXML(QXmlStreamReader &doc);
 };
 
 /** @} */

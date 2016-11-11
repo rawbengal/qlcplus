@@ -18,21 +18,25 @@
 */
 
 import QtQuick 2.0
+import "."
 
-Rectangle {
+Rectangle
+{
     property int funcID: -1
     property string funcLabel
     property string funcIcon
+    property int modifiers
 
     width: 200
-    height: 40
+    height: UISettings.listItemHeight
     z: 10
     border.width: 1
     border.color: "black"
     opacity: 0.8
-    color: "#333"
+    color: UISettings.bgMedium
 
-    IconTextEntry {
+    IconTextEntry
+    {
         id: funcEntry
         width: parent.width
         height: parent.height

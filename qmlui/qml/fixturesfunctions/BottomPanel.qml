@@ -18,6 +18,7 @@
 */
 
 import QtQuick 2.0
+import "."
 
 Rectangle
 {
@@ -26,7 +27,7 @@ Rectangle
     anchors.leftMargin: 0
     width: parent.width
     height: collapseHeight
-    color: "#232323"
+    color: UISettings.bgStrong
 
     property bool isOpen: false
     property int collapseHeight: 40
@@ -87,8 +88,8 @@ Rectangle
         gradient: Gradient
         {
             GradientStop { position: 0; color: "#141414" }
-            GradientStop { position: 0.213; color: "#232323" }
-            GradientStop { position: 0.79; color: "#232323" }
+            GradientStop { position: 0.21; color: UISettings.bgStrong }
+            GradientStop { position: 0.79; color: UISettings.bgStrong }
             GradientStop { position: 1; color: "#141414" }
         }
 
@@ -121,15 +122,21 @@ Rectangle
             anchors.fill: parent
             z: 1
             hoverEnabled: true
-            cursorShape: Qt.OpenHandCursor
+            cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
             drag.target: bottomSidePanel
             drag.axis: Drag.YAxis
-            drag.minimumY: collapseHeight
+            drag.minimumY: 0
+            drag.maximumY: bottomSidePanel.parent.height - collapseHeight
 
             onPositionChanged:
             {
                 if (drag.active == true)
-                    bottomSidePanel.height = bottomSidePanel.parent.height - bottomSidePanel.y
+                {
+                    var newHeight = bottomSidePanel.parent.height - bottomSidePanel.y
+                    if (newHeight < collapseHeight)
+                        return
+                    bottomSidePanel.height = newHeight
+                }
             }
             //onClicked: animatePanel()
         }

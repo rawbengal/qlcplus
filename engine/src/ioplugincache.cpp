@@ -25,8 +25,8 @@
 #   include <windows.h>
 #endif
 
-#if !defined(Q_OS_ANDROID)
-#include "hotplugmonitor.h"
+#if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+#   include "hotplugmonitor.h"
 #endif
 #include "ioplugincache.h"
 #include "qlcioplugin.h"
@@ -54,13 +54,18 @@ void IOPluginCache::load(const QDir& dir)
     if (dir.exists() == false || dir.isReadable() == false)
         return;
 
-    /* Loop thru all files in the directory */
+    /* Loop through all files in the directory */
     QStringListIterator it(dir.entryList());
     while (it.hasNext() == true)
     {
         /* Attempt to load a plugin from the path */
         QString fileName(it.next());
         QString path = dir.absoluteFilePath(fileName);
+#if defined Q_OS_ANDROID
+        if (fileName.toLower().contains("qt") || fileName.toLower().startsWith("libplugins") ||
+            fileName.toLower().contains("qlcplus"))
+                continue;
+#endif
         QPluginLoader loader(path, this);
         QLCIOPlugin* ptr = qobject_cast<QLCIOPlugin*> (loader.instance());
         if (ptr != NULL)
@@ -75,7 +80,7 @@ void IOPluginCache::load(const QDir& dir)
                 m_plugins << ptr;
                 connect(ptr, SIGNAL(configurationChanged()),
                         this, SLOT(slotConfigurationChanged()));
-#if !defined(Q_OS_ANDROID)
+#if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
                 HotPlugMonitor::connectListener(ptr);
 #endif
                 // QLCi18n::loadTranslation(p->name().replace(" ", "_"));

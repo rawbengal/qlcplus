@@ -7,22 +7,38 @@
 CURRUSER=`whoami`
 TESTPREFIX=""
 SLEEPCMD=""
+HAS_XSERVER="0"
 
-if [ "$CURRUSER" == "buildbot" ]; then
+if [ "$CURRUSER" == "buildbot" ] || [ "$CURRUSER" == "abuild" ]; then
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     if [ `which xvfb-run` == "" ]; then
       echo "xvfb-run not found in this system. Please install with: sudo apt-get install xvfb"
       exit
     fi
     TESTPREFIX="xvfb-run"
+    HAS_XSERVER="1"
+    # if we're running as build slave, set a sleep time to start/stop xvfb between tests
+    SLEEPCMD="sleep 1"
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "We're on OSX. Any prefix needed ?"
   fi
-fi
 
-# if we're running as build slave, set a sleep time to start/stop xvfb between tests
-if [[ "$USER" == "buildbot" ]]; then
-  SLEEPCMD="sleep 1"
+else
+
+  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    XPID=`pidof X`
+    if [ ! ${#XPID} -gt 0 ]; then
+      XPID=`pidof Xorg`
+    fi
+    if [ ${#XPID} -gt 0 ]; then
+      HAS_XSERVER="1"
+    fi
+
+    # no X server ? Let's look for xvfb. This is how Travis is setup
+    if [ -n "$TRAVIS" ]; then
+        HAS_XSERVER="1"
+    fi
+  fi
 fi
 
 TESTDIR=engine/test
@@ -54,6 +70,8 @@ done
 # UI tests
 #############################################################################
 
+if [ "$HAS_XSERVER" -eq "1" ]; then
+
 TESTDIR=ui/test
 TESTS=`find ${TESTDIR} -maxdepth 1 -mindepth 1 -type d`
 for test in ${TESTS}
@@ -80,6 +98,8 @@ do
     fi
 done
 
+fi
+
 #############################################################################
 # Enttec wing tests
 #############################################################################
@@ -98,17 +118,20 @@ popd
 #############################################################################
 # Velleman test
 #############################################################################
-
-$SLEEPCMD
-pushd .
-cd plugins/velleman/test
-$TESTPREFIX ./test.sh
-RESULT=$?
-if [ $RESULT != 0 ]; then
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "Skip Velleman test (not supported on OSX)"
+else
+  $SLEEPCMD
+  pushd .
+  cd plugins/velleman/test
+  $TESTPREFIX ./test.sh
+  RESULT=$?
+  if [ $RESULT != 0 ]; then
     echo "Velleman unit test failed ($RESULT). Please fix before commit."
 	exit $RESULT
+  fi
+  popd
 fi
-popd
 
 #############################################################################
 # MIDI tests

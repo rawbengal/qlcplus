@@ -18,32 +18,63 @@
 */
 
 import QtQuick 2.0
+import "."
 
 Rectangle
 {
     id: customTextEditRect
     width: 200
-    height: 30
+    height: UISettings.listItemHeight
+    clip: true
     radius: 3
-    color: "#333333"
+    color: UISettings.bgMedium
 
-    property alias inputText: textEdit2.text
-    property int fontSize: 17
+    property alias inputFocus: ctEdit.focus
+    property alias inputText: ctEdit.text
+    property alias inputMethodHints: ctEdit.inputMethodHints
+    property alias readOnly: ctEdit.readOnly
+    property alias echoMode: ctEdit.echoMode
+    property alias maximumLength: ctEdit.maximumLength
+    property int fontSize: UISettings.textSizeDefault
+    property int textAlignment: TextInput.AlignLeft
+
+    property Item nextTabItem: null
+    property Item previousTabItem: null
+
+    signal textChanged(var text)
+    signal enterPressed()
+    signal escapePressed()
+
+    function selectAndFocus()
+    {
+        ctEdit.selectAll()
+        ctEdit.focus = true
+        ctEdit.forceActiveFocus()
+    }
 
     border.color: "#222"
 
+    onFocusChanged: if (focus) selectAndFocus()
+
     TextInput
     {
-        id: textEdit2
-        color: "#ffffff"
-        anchors.right: parent.right
-        anchors.rightMargin: 4
-        anchors.left: parent.left
-        anchors.leftMargin: 4
-        clip: false
-        font.family: "RobotoCondensed"
+        id: ctEdit
+        anchors.fill: parent
+        //anchors.verticalCenter: parent.verticalCenter
+        anchors.margins: 4
+        color: UISettings.fgMain
+        selectionColor: UISettings.highlightPressed
+        clip: true
+        horizontalAlignment: textAlignment
+        verticalAlignment: TextInput.AlignVCenter
+        font.family: UISettings.robotoFontName
         font.pixelSize: fontSize
-        echoMode: TextInput.Normal
-        anchors.verticalCenter: parent.verticalCenter
+        selectByMouse: true
+
+        onTextChanged: customTextEditRect.textChanged(text)
+        onAccepted: customTextEditRect.enterPressed()
+        Keys.onEscapePressed: customTextEditRect.escapePressed()
+        KeyNavigation.tab: nextTabItem
+        KeyNavigation.backtab: previousTabItem
     }
 }

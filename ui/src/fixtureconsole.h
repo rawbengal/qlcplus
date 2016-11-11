@@ -26,8 +26,6 @@
 #include "consolechannel.h"
 #include "scene.h"
 
-class QDomDocument;
-class QDomElement;
 class MasterTimer;
 class QHBoxLayout;
 class OutputMap;
@@ -58,6 +56,11 @@ public:
 
     FixtureConsole(QWidget* parent, Doc* doc, GroupType type = GroupNone, bool showCheck = true);
     ~FixtureConsole();
+
+    void enableResetButton(bool enable);
+
+signals:
+    void resetRequest(quint32 fxID, quint32 channel);
 
 protected:
     void showEvent(QShowEvent* ev);

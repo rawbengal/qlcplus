@@ -21,12 +21,13 @@ import QtQuick 2.0
 import com.qlcplus.classes 1.0
 
 import "FunctionDrag.js" as FuncDragJS
+import "."
 
 Rectangle
 {
     id: funcDelegate
     width: 100
-    height: 35
+    height: UISettings.listItemHeight
 
     color: "transparent"
 
@@ -35,14 +36,21 @@ Rectangle
     property bool isSelected: false
 
     signal toggled
-    signal clicked
+    signal clicked(int ID, var qItem, int mouseMods)
     signal doubleClicked(int ID, int Type)
+    signal destruction(int ID, var qItem)
+
+    Component.onDestruction:
+    {
+        if (cRef)
+            funcDelegate.destruction(cRef.id, funcDelegate)
+    }
 
     Rectangle
     {
         anchors.fill: parent
         radius: 3
-        color: "#0978FF"
+        color: UISettings.highlight
         visible: isSelected
     }
 
@@ -51,7 +59,7 @@ Rectangle
         id: funcEntry
         width: parent.width
         height: parent.height
-        tLabel: textLabel
+        tLabel: cRef ? cRef.name : textLabel
         functionType: cRef ? cRef.type : -1
     }
     Rectangle
@@ -67,32 +75,29 @@ Rectangle
         id: funcMouseArea
         anchors.fill: parent
 
-        drag.target: FunctionDragItem
-        {
-            funcID: cRef ? cRef.id : -1
-            funcLabel: textLabel
-            funcIcon: funcEntry.iSrc
-        }
+        drag.target:
+            FunctionDragItem
+            {
+                funcID: cRef ? cRef.id : -1
+                funcLabel: cRef ? cRef.name : textLabel
+                funcIcon: funcEntry.iSrc
+            }
         drag.threshold: 30
 
-        onPressed:
-        {
-            FuncDragJS.initProperties(cRef.id, textLabel, funcEntry.iSrc);
-        }
+        onPressed: FuncDragJS.initProperties(cRef.id, textLabel, funcEntry.iSrc);
 
         onPositionChanged:
             if(drag.active == true)
                 FuncDragJS.handleDrag(mouse);
         onReleased:
             if(drag.active == true)
-                FuncDragJS.endDrag(mouse);
+                FuncDragJS.endDrag(mouse, mouse.modifiers);
 
         onClicked:
         {
-            isSelected = true
-            functionManager.selectFunction(cRef.id, funcDelegate,
-                                           (mouse.modifiers & Qt.ControlModifier))
-            //funcDelegate.clicked()
+            // inform the upper layers of the click.
+            // A ModelSelector will be in charge to actually select this item
+            funcDelegate.clicked(cRef.id, funcDelegate, mouse.modifiers)
         }
         onDoubleClicked:
         {

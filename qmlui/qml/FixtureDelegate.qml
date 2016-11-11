@@ -20,12 +20,13 @@
 import QtQuick 2.0
 
 import com.qlcplus.classes 1.0
+import "."
 
 Rectangle
 {
     id: fxDelegate
     width: 100
-    height: 35
+    height: UISettings.listItemHeight
 
     color: "transparent"
 
@@ -33,27 +34,32 @@ Rectangle
     property string textLabel: cRef ? cRef.name : ""
     property bool isSelected: false
 
-    signal toggled
-    signal clicked
+    signal clicked(int ID, var qItem, int mouseMods)
     signal doubleClicked(int fID, int fType)
 
     function iconFromType(type)
     {
         if (type === "Color Changer")
-            return "qrc:/fixture.svg";
+            return "qrc:/fixture.svg"
         else if (type === "Dimmer")
-            return "qrc:/dimmer.svg";
+            return "qrc:/dimmer.svg"
         else if (type === "Moving Head")
-            return "qrc:/movinghead.svg";
+            return "qrc:/movinghead.svg"
+        else if (type === "Flower")
+            return "qrc:/flower.svg"
+        else if (type === "Effect")
+            return "qrc:/effect.svg"
+        else if (type === "Laser")
+            return "qrc:/laser.svg"
         else
-            return "qrc:/fixture.svg";
+            return "qrc:/fixture.svg"
     }
 
     Rectangle
     {
         anchors.fill: parent
         radius: 3
-        color: "#0978FF"
+        color: UISettings.highlight
         visible: isSelected
     }
 
@@ -79,16 +85,7 @@ Rectangle
         anchors.fill: parent
         hoverEnabled: true
 
-        onClicked:
-        {
-            isSelected = true
-            //fixtureManager.selectFixture(cRef.id, fxDelegate,
-            //                             (mouse.modifiers & Qt.ControlModifier))
-            fxDelegate.clicked()
-        }
-        onDoubleClicked:
-        {
-            fxDelegate.doubleClicked(cRef.id, -1)
-        }
+        onClicked: fxDelegate.clicked(cRef.id, fxDelegate, mouse.modifiers)
+        onDoubleClicked: fxDelegate.doubleClicked(cRef.id, -1)
     }
 }

@@ -1,6 +1,6 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE FixtureDefinition>
-<FixtureDefinition xmlns="http://qlcplus.sourceforge.net/FixtureDefinition">
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
  <Creator>
   <Name>Q Light Controller Plus</Name>
   <Version>4.8.5 GIT</Version>
@@ -138,11 +138,11 @@
  </Channel>
  <Channel Name="Iris">
   <Group Byte="0">Beam</Group>
-  <Capability Min="0" Max="255">Max > Min</Capability>
+  <Capability Min="0" Max="255">Max &gt; Min</Capability>
  </Channel>
  <Channel Name="Focus">
   <Group Byte="0">Beam</Group>
-  <Capability Min="0" Max="255">close -> distant</Capability>
+  <Capability Min="0" Max="255">close -&gt; distant</Capability>
  </Channel>
  <Channel Name="Control">
   <Group Byte="0">Maintenance</Group>

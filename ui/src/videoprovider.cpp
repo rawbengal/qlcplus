@@ -89,6 +89,8 @@ VideoWidget::VideoWidget(Video *video, QObject *parent)
             this, SLOT(slotSourceUrlChanged(QString)));
     connect(m_video, SIGNAL(requestPlayback()),
             this, SLOT(slotPlaybackVideo()));
+    connect(m_video, SIGNAL(requestPause(bool)),
+            this, SLOT(slotSetPause(bool)));
     connect(m_video, SIGNAL(requestStop()),
             this, SLOT(slotStopVideo()));
     connect(m_video, SIGNAL(requestBrightnessAdjust(int)),
@@ -151,8 +153,7 @@ void VideoWidget::slotStatusChanged(QMediaPlayer::MediaStatus status)
             if (m_videoWidget != NULL)
                 m_videoWidget->hide();
 
-            if (m_video->isRunning())
-                m_video->stop();
+            m_video->stop(functionParent());
             break;
         }
         case QMediaPlayer::InvalidMedia:
@@ -177,30 +178,12 @@ void VideoWidget::slotMetaDataChanged(QString key, QVariant data)
 
 void VideoWidget::slotPlaybackVideo()
 {
-/*
-    if (m_videoWidget != NULL)
-    {
-        //m_videoWidget->deleteLater();
-        delete m_videoWidget;
-        m_videoWidget = NULL;
-    }
-*/
     if (m_videoWidget == NULL)
     {
         m_videoWidget = new QVideoWidget;
+        m_videoWidget->setStyleSheet("background-color:black;");
         m_videoPlayer->setVideoOutput(m_videoWidget);
     }
-    else
-    {
-        m_videoWidget->show();
-    }
-
-    //m_videoWidget->moveToThread(QCoreApplication::instance()->thread());
-
-    if (m_video->getStartTime() != UINT_MAX)
-        m_videoPlayer->setPosition(m_video->getStartTime());
-    else
-        m_videoPlayer->setPosition(0);
 
     int screen = m_video->screen();
     QRect rect = qApp->desktop()->screenGeometry(screen);
@@ -208,27 +191,39 @@ void VideoWidget::slotPlaybackVideo()
     if (m_video->fullscreen() == false)
     {
         QSize resolution = m_video->resolution();
+        m_videoWidget->setFullScreen(false);
         if (resolution.isEmpty())
             m_videoWidget->setGeometry(0, 50, 640, 480);
         else
             m_videoWidget->setGeometry(0, 50, resolution.width(), resolution.height());
+        m_videoWidget->move(rect.topLeft());
     }
     else
     {
-        m_videoWidget->setGeometry(rect);
-    }
-
-    if (screen > 0 && getScreenCount() > screen)
-    {
-        m_videoWidget->move(rect.topLeft());
-    }
-
-    if (m_video->fullscreen() == true)
+#if defined(WIN32) || defined(Q_OS_WIN)
         m_videoWidget->setFullScreen(true);
+        m_videoWidget->setGeometry(rect);
+#else
+        m_videoWidget->setGeometry(rect);
+        m_videoWidget->setFullScreen(true);
+#endif
+    }
+
+    if (m_videoPlayer->isSeekable())
+        m_videoPlayer->setPosition(m_video->elapsed());
+    else
+        m_videoPlayer->setPosition(0);
 
     m_videoWidget->show();
-
     m_videoPlayer->play();
+}
+
+void VideoWidget::slotSetPause(bool enable)
+{
+    if (enable)
+        m_videoPlayer->pause();
+    else
+        m_videoPlayer->play();
 }
 
 void VideoWidget::slotStopVideo()
@@ -237,10 +232,12 @@ void VideoWidget::slotStopVideo()
         m_videoPlayer->stop();
 
     if (m_videoWidget != NULL)
+    {
+        m_videoWidget->setFullScreen(false);
         m_videoWidget->hide();
+    }
 
-    if (m_video->isRunning())
-        m_video->stop();
+    m_video->stop(functionParent());
 }
 
 void VideoWidget::slotBrightnessAdjust(int value)
@@ -257,4 +254,9 @@ int VideoWidget::getScreenCount()
         screenCount = desktop->screenCount();
 
     return screenCount;
+}
+
+FunctionParent VideoWidget::functionParent() const
+{
+    return FunctionParent::master();
 }

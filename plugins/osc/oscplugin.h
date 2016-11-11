@@ -70,6 +70,9 @@ public:
     /** @reimp */
     QString pluginInfo();
 
+private:
+    bool requestLine(quint32 line, int retries);
+
     /*********************************************************************
      * Outputs
      *********************************************************************/
@@ -121,16 +124,10 @@ public:
     /** @reimp */
     void setParameter(quint32 universe, quint32 line, Capability type, QString name, QVariant value);
 
-    QList<QNetworkAddressEntry> interfaces();
-
     /** Get a list of the available Input/Output lines */
     QList<OSCIO> getIOMapping();
 
 private:
-    /** List holding the detected system network interfaces */
-    QList<QNetworkAddressEntry> m_netInterfaces;
-
-
     /** Map of the OSC plugin Input/Output lines */
     QList<OSCIO>m_IOmapping;
 };

@@ -23,10 +23,10 @@
 #include <QVBoxLayout>
 #include <QToolButton>
 #include <QSpinBox>
+#include <QDebug>
 #include <QLabel>
 #include <QMenu>
 #include <QList>
-#include <QtXml>
 
 #include "qlcchannel.h"
 #include "qlccapability.h"
@@ -52,6 +52,8 @@ ConsoleChannel::ConsoleChannel(QWidget* parent, Doc* doc, quint32 fixture, quint
     , m_spin(NULL)
     , m_slider(NULL)
     , m_label(NULL)
+    , m_resetButton(NULL)
+    , m_showResetButton(false)
     , m_menu(NULL)
     , m_selected(false)
 {
@@ -66,14 +68,6 @@ ConsoleChannel::ConsoleChannel(QWidget* parent, Doc* doc, quint32 fixture, quint
 
 ConsoleChannel::~ConsoleChannel()
 {
-}
-
-void ConsoleChannel::setChannelStyleSheet(const QString &styleSheet)
-{
-    if(isVisible())
-        QGroupBox::setStyleSheet(styleSheet);
-    else
-        m_styleSheet = styleSheet;
 }
 
 void ConsoleChannel::init()
@@ -164,7 +158,7 @@ void ConsoleChannel::init()
     m_label->setWordWrap(true);
 
     /* Set tooltip */
-    if (fxi == NULL || fxi->isDimmer() == true)
+    if (fxi == NULL)
     {
         setToolTip(tr("Intensity"));
     }
@@ -282,6 +276,54 @@ void ConsoleChannel::slotChecked(bool state)
         emit valueChanged(m_fixture, m_channel, m_slider->value());
 }
 
+/*************************************************************************
+ * Look & Feel
+ *************************************************************************/
+
+void ConsoleChannel::setChannelStyleSheet(const QString &styleSheet)
+{
+    if(isVisible())
+        QGroupBox::setStyleSheet(styleSheet);
+    else
+        m_styleSheet = styleSheet;
+}
+
+void ConsoleChannel::showResetButton(bool show)
+{
+    if (show == true)
+    {
+        if (m_resetButton == NULL)
+        {
+            m_resetButton = new QToolButton(this);
+            m_resetButton->setStyle(AppUtil::saneStyle());
+            layout()->addWidget(m_resetButton);
+            layout()->setAlignment(m_resetButton, Qt::AlignHCenter);
+            m_resetButton->setIconSize(QSize(32, 32));
+            m_resetButton->setMinimumSize(QSize(32, 32));
+            m_resetButton->setMaximumSize(QSize(32, 32));
+            m_resetButton->setFocusPolicy(Qt::NoFocus);
+            m_resetButton->setIcon(QIcon(":/fileclose.png"));
+            m_resetButton->setToolTip(tr("Reset this channel"));
+        }
+        connect(m_resetButton, SIGNAL(clicked(bool)),
+                this, SLOT(slotResetButtonClicked()));
+    }
+    else
+    {
+        if (m_resetButton != NULL)
+        {
+            layout()->removeWidget(m_resetButton);
+            delete m_resetButton;
+            m_resetButton = NULL;
+        }
+    }
+}
+
+void ConsoleChannel::slotResetButtonClicked()
+{
+    emit resetRequest(m_fixture, m_channel);
+}
+
 /*****************************************************************************
  * Menu
  *****************************************************************************/
@@ -351,8 +393,7 @@ void ConsoleChannel::initMenu()
         m_menu->addSeparator();
 
         // Initialize the preset menu only for intelligent fixtures
-        if (fxi->isDimmer() == false)
-            initCapabilityMenu(ch);
+        initCapabilityMenu(ch);
     }
 }
 
@@ -418,6 +459,18 @@ void ConsoleChannel::setIntensityButton(const QLCChannel* channel)
         m_presetButton->setText("UV"); // Don't localize
         m_cngWidget = new ClickAndGoWidget();
         m_cngWidget->setType(ClickAndGoWidget::UV);
+    }
+    else if (channel->colour() == QLCChannel::Lime)
+    {
+        m_presetButton->setText("L");
+        m_cngWidget = new ClickAndGoWidget();
+        m_cngWidget->setType(ClickAndGoWidget::Lime);
+    }
+    else if (channel->colour() == QLCChannel::Indigo)
+    {
+        m_presetButton->setText("I");
+        m_cngWidget = new ClickAndGoWidget();
+        m_cngWidget->setType(ClickAndGoWidget::Indigo);
     }
     else
     {

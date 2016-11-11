@@ -38,6 +38,9 @@ public:
     /** @reimp */
     void enableContext(bool enable);
 
+    /** @reimp */
+    void setUniverseFilter(quint32 universeFilter);
+
     void reset();
 
     void createFixtureItem(quint32 fxID);
@@ -46,17 +49,17 @@ public:
 
     void updateFixtureSelection(QList<quint32>fixtures);
 
+    void updateFixtureSelection(quint32 fxID, bool enable);
+
 protected:
 
 signals:
 
 protected slots:
+    /** @reimp */
     void slotRefreshView();
 
 private:
-    /** References to the 2D view and 2D contents for items creation */
-    QQuickItem *m_viewDMX;
-
     /** Pre-cached QML component for quick item creation */
     QQmlComponent *fixtureComponent;
 };
