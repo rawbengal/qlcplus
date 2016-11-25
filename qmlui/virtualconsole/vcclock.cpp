@@ -77,7 +77,12 @@ void VCClock::setID(quint32 id)
     VCWidget::setID(id);
 
     if (caption().isEmpty())
-        setCaption(tr("Clock %1").arg(id));
+        setCaption(defaultCaption());
+}
+
+QString VCClock::defaultCaption()
+{
+    return tr("Clock %1").arg(id());
 }
 
 void VCClock::render(QQuickView *view, QQuickItem *parent)
@@ -314,15 +319,20 @@ void VCClock::addSchedule(VCClockSchedule *schedule)
     emit scheduleListChanged();
 }
 
-void VCClock::addSchedule(quint32 funcID)
+void VCClock::addSchedules(QVariantList idsList)
 {
-    if (m_doc->function(funcID) == NULL)
-        return;
+    for (QVariant vID : idsList) // C++11
+    {
+        quint32 funcID = vID.toUInt();
+        if (m_doc->function(funcID) == NULL)
+            continue;
 
-    VCClockSchedule *sch = new VCClockSchedule();
-    QQmlEngine::setObjectOwnership(sch, QQmlEngine::CppOwnership);
-    sch->setFunctionID(funcID);
-    m_scheduleList.append(sch);
+        VCClockSchedule *sch = new VCClockSchedule();
+        QQmlEngine::setObjectOwnership(sch, QQmlEngine::CppOwnership);
+        sch->setFunctionID(funcID);
+        m_scheduleList.append(sch);
+    }
+
     qSort(m_scheduleList);
     emit scheduleListChanged();
 }

@@ -275,11 +275,14 @@ Rectangle
           id: functionsListView
           width: fmContainer.width
           height: fmContainer.height - topBar.height
+          //anchors.fill: parent
           z: 4
           boundsBehavior: Flickable.StopAtBounds
           Layout.fillHeight: true
 
           Component.onCompleted: contentY = functionManager.viewPosition
+
+          property bool dragActive: false
 
           model: functionManager.functionsList
           delegate:
@@ -294,6 +297,7 @@ Rectangle
                       {
                           item.textLabel = label
                           item.isSelected = Qt.binding(function() { return isSelected })
+                          item.dragItem = fDragItem
 
                           if (hasChildren)
                           {
@@ -311,20 +315,52 @@ Rectangle
                       Connections
                       {
                           target: item
-                          onDoubleClicked: loadFunctionEditor(ID, Type)
-                      }
-                      Connections
-                      {
-                          target: item
-                          onClicked:
+                          onMouseEvent:
                           {
-                              if (qItem == item)
+                              //console.log("Got a mouse event in Function Manager: " + type)
+                              switch (type)
                               {
-                                  model.isSelected = (mouseMods & Qt.ControlModifier) ? 2 : 1
-                                  if (model.hasChildren)
-                                      model.isExpanded = item.isExpanded
+                                case App.Pressed:
+                                    var posnInWindow = qItem.mapToItem(mainView, qItem.x, qItem.y)
+                                    fDragItem.parent = mainView
+                                    fDragItem.x = posnInWindow.x - (fDragItem.width / 4)
+                                    fDragItem.y = posnInWindow.y - (fDragItem.height / 4)
+                                    fDragItem.modifiers = mouseMods
+                                break;
+                                case App.Clicked:
+                                  if (qItem == item)
+                                  {
+                                      model.isSelected = (mouseMods & Qt.ControlModifier) ? 2 : 1
+                                      if (model.hasChildren)
+                                          model.isExpanded = item.isExpanded
+                                  }
+                                  functionManager.selectFunctionID(iID, mouseMods & Qt.ControlModifier)
+                                break;
+                                case App.DoubleClicked:
+                                    loadFunctionEditor(iID, iType)
+                                break;
+                                case App.DragStarted:
+                                    if (qItem == item && !model.isSelected)
+                                    {
+                                        model.isSelected = 1
+                                        // invalidate the modifiers to force a single selection
+                                        mouseMods = -1
+                                    }
+
+                                    if (mouseMods == -1)
+                                        functionManager.selectFunctionID(iID, mouseMods & Qt.ControlModifier)
+
+                                    fDragItem.itemsList = functionManager.selectedFunctionsID()
+                                    functionsListView.dragActive = true
+                                break;
+                                case App.DragFinished:
+                                    fDragItem.Drag.drop()
+                                    fDragItem.parent = functionsListView
+                                    fDragItem.x = 0
+                                    fDragItem.y = 0
+                                    functionsListView.dragActive = false
+                                break;
                               }
-                              functionManager.selectFunctionID(ID, mouseMods & Qt.ControlModifier)
                           }
                       }
                       Connections
@@ -335,7 +371,21 @@ Rectangle
                       }
                   } // Loader
               } // Component
-              ScrollBar { flickable: functionsListView }
+              ScrollBar { id: fMgrScrollBar; flickable: functionsListView }
+
+              FunctionDragItem
+              {
+                  id: fDragItem
+
+                  visible: functionsListView.dragActive
+                  fromFunctionManager: true
+
+                  Drag.active: functionsListView.dragActive
+                  Drag.source: fDragItem
+                  Drag.keys: [ "function" ]
+
+              }
         } // ListView
+
     } // ColumnLayout
 }
