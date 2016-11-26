@@ -109,7 +109,7 @@ void ReadThread::run()
             QByteArray dataRead = gpio->m_file->readAll().simplified();
             if (dataRead.isEmpty())
                 continue;
-            uchar newVal = dataRead.toUInt();
+            uchar newVal = (dataRead.toUInt() == 0) ? 255 : 0;	// active low
             if (newVal != gpio->m_value)
             {
                 gpio->m_count++;
