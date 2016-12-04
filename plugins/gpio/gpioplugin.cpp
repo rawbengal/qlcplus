@@ -150,7 +150,7 @@ void GPIOPlugin::writeUniverse(quint32 universe, quint32 output, const QByteArra
             continue;
 
         //qDebug() << "[GPIO] writing GPIO number:" << i;
-        uchar boolVal = uchar(data.at(i)) < 128 ? 1 : 0;
+        uchar boolVal = uchar(data.at(i)) < 128 ? 0 : 1;
         if (gpio->m_value != boolVal)
             setPinValue(i, boolVal);
     }
