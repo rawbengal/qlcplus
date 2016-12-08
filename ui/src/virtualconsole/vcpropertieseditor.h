@@ -96,6 +96,8 @@ protected slots:
      *************************************************************************/
 private slots:
     void slotGrandMasterIntensityToggled(bool checked);
+    void slotGrandMasterNonIntensityToggled(bool checked);
+    void slotGrandMasterAllChannelsToggled(bool checked);
     void slotGrandMasterReduceToggled(bool checked);
     void slotGrandMasterSliderNormalToggled(bool checked);
     void slotAutoDetectGrandMasterInputToggled(bool checked);

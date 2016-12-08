@@ -53,12 +53,17 @@ void GrandMaster_Test::channelMode()
     m_gm->setChannelMode(GrandMaster::Intensity);
     QCOMPARE(m_gm->channelMode(), GrandMaster::Intensity);
 
+    m_gm->setChannelMode(GrandMaster::NonIntensity);
+    QCOMPARE(m_gm->channelMode(), GrandMaster::NonIntensity);
+
     QCOMPARE(GrandMaster::stringToChannelMode("All"), GrandMaster::AllChannels);
     QCOMPARE(GrandMaster::stringToChannelMode("Intensity"), GrandMaster::Intensity);
+    QCOMPARE(GrandMaster::stringToChannelMode("NonIntensity"), GrandMaster::NonIntensity);
     QCOMPARE(GrandMaster::stringToChannelMode("foobar"), GrandMaster::Intensity);
 
     QCOMPARE(GrandMaster::channelModeToString(GrandMaster::AllChannels), QString("All"));
     QCOMPARE(GrandMaster::channelModeToString(GrandMaster::Intensity), QString("Intensity"));
+    QCOMPARE(GrandMaster::channelModeToString(GrandMaster::NonIntensity), QString("NonIntensity"));
     QCOMPARE(GrandMaster::channelModeToString(GrandMaster::ChannelMode(42)), QString("Intensity"));
 }
 

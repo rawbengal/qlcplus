@@ -167,6 +167,7 @@ bool Universe::monitor() const
 
 void Universe::slotGMValueChanged()
 {
+    if (m_grandMaster->channelMode() != GrandMaster::NonIntensity)
     {
         for (int i = 0; i < m_intensityChannels.size(); ++i)
         {
@@ -175,7 +176,7 @@ void Universe::slotGMValueChanged()
         }
     }
 
-    if (m_grandMaster->channelMode() == GrandMaster::AllChannels)
+    if (m_grandMaster->channelMode() != GrandMaster::Intensity)
     {
         for (int i = 0; i < m_nonIntensityChannels.size(); ++i)
         {
@@ -223,7 +224,7 @@ void Universe::reset(int address, int range)
 {
     if (address >= UNIVERSE_SIZE)
         return;
-    if (address + range > UNIVERSE_SIZE) 
+    if (address + range > UNIVERSE_SIZE)
        range = UNIVERSE_SIZE - address;
 
     memset(m_preGMValues->data() + address, 0, range * sizeof(*m_preGMValues->data()));
@@ -336,6 +337,7 @@ uchar Universe::applyRelative(int channel, uchar value)
 uchar Universe::applyGM(int channel, uchar value)
 {
     if ((m_grandMaster->channelMode() == GrandMaster::Intensity && m_channelsMask->at(channel) & Intensity) ||
+        (m_grandMaster->channelMode() == GrandMaster::NonIntensity && !(m_channelsMask->at(channel) & Intensity)) ||
         (m_grandMaster->channelMode() == GrandMaster::AllChannels))
     {
         if (m_grandMaster->valueMode() == GrandMaster::Limit)

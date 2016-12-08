@@ -56,7 +56,8 @@ public:
     enum ChannelMode
     {
         Intensity,  /** GM applied only for Intensity channels */
-        AllChannels /** GM applied for all channels */
+        AllChannels, /** GM applied for all channels */
+        NonIntensity  /** apply to all non-Intensity channels */
     };
 
     enum SliderMode

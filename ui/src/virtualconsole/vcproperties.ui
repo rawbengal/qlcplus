@@ -641,6 +641,16 @@
             </property>
            </widget>
           </item>
+           <item>
+            <widget class="QRadioButton" name="m_gmNonIntensityRadio">
+             <property name="toolTip">
+              <string>Apply Grand Master only to non-Intensity channels.</string>
+             </property>
+             <property name="text">
+              <string>Non-Intensity</string>
+             </property>
+            </widget>
+           </item>
           <item>
            <widget class="QRadioButton" name="m_gmAllChannelsRadio">
             <property name="toolTip">
@@ -836,6 +846,7 @@
   <tabstop>m_soloWspin</tabstop>
   <tabstop>m_soloHspin</tabstop>
   <tabstop>m_gmIntensityRadio</tabstop>
+  <tabstop>m_gmNonIntensityRadio</tabstop>
   <tabstop>m_gmReduceRadio</tabstop>
   <tabstop>m_gmAllChannelsRadio</tabstop>
   <tabstop>m_gmLimitRadio</tabstop>
@@ -929,6 +940,18 @@
      <y>154</y>
     </hint>
    </hints>
+  </connection>
+  <connection>
+   <sender>m_gmNonIntensityRadio</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>VCPropertiesEditor</receiver>
+   <slot>slotGrandMasterNonIntensityToggled(bool)</slot>
+  </connection>
+  <connection>
+    <sender>m_gmAllChannelsRadio</sender>
+    <signal>toggled(bool)</signal>
+    <receiver>VCPropertiesEditor</receiver>
+    <slot>slotGrandMasterAllChannelsToggled(bool)</slot>
   </connection>
   <connection>
    <sender>m_gmReduceRadio</sender>

@@ -199,6 +199,9 @@ VCPropertiesEditor::VCPropertiesEditor(QWidget* parent, const VCProperties& prop
     case GrandMaster::Intensity:
         m_gmIntensityRadio->setChecked(true);
         break;
+    case GrandMaster::NonIntensity:
+        m_gmNonIntensityRadio->setChecked(true);
+        break;
     case GrandMaster::AllChannels:
         m_gmAllChannelsRadio->setChecked(true);
         break;
@@ -330,7 +333,17 @@ void VCPropertiesEditor::slotGrandMasterIntensityToggled(bool checked)
 {
     if (checked == true)
         m_properties.setGrandMasterChannelMode(GrandMaster::Intensity);
-    else
+}
+
+void VCPropertiesEditor::slotGrandMasterNonIntensityToggled(bool checked)
+{
+    if (checked == true)
+        m_properties.setGrandMasterChannelMode(GrandMaster::NonIntensity);
+}
+
+void VCPropertiesEditor::slotGrandMasterAllChannelsToggled(bool checked)
+{
+    if (checked == true)
         m_properties.setGrandMasterChannelMode(GrandMaster::AllChannels);
 }
 

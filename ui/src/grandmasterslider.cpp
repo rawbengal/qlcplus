@@ -156,6 +156,9 @@ void GrandMasterSlider::updateTooltip()
         case GrandMaster::Intensity:
             tooltip += tr("intensity channels");
             break;
+        case GrandMaster::NonIntensity:
+            tooltip += tr("non-intensity channels");
+            break;
         case GrandMaster::AllChannels:
             tooltip += tr("all channels");
             break;

@@ -21,6 +21,7 @@
 #define KXMLQLCGMValueModeReduce "Reduce"
 #define KXMLQLCGMChannelModeAllChannels "All"
 #define KXMLQLCGMChannelModeIntensity "Intensity"
+#define KXMLQLCGMChannelModeNonIntensity "NonIntensity"
 #define KXMLQLCGMSliderModeNormal "Normal"
 #define KXMLQLCGMSliderModeInverted "Inverted"
 
@@ -66,6 +67,8 @@ GrandMaster::ChannelMode GrandMaster::stringToChannelMode(const QString& str)
 {
     if (str == KXMLQLCGMChannelModeAllChannels)
         return GrandMaster::AllChannels;
+    else if (str == KXMLQLCGMChannelModeNonIntensity)
+        return GrandMaster::NonIntensity;
     else
         return GrandMaster::Intensity;
 }
@@ -76,6 +79,8 @@ QString GrandMaster::channelModeToString(GrandMaster::ChannelMode mode)
     {
     case GrandMaster::AllChannels:
         return KXMLQLCGMChannelModeAllChannels;
+    case GrandMaster::NonIntensity:
+            return KXMLQLCGMChannelModeNonIntensity;
     default:
     case GrandMaster::Intensity:
         return KXMLQLCGMChannelModeIntensity;
