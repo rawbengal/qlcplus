@@ -19,6 +19,7 @@
 
 #include <QStringList>
 #include <QDebug>
+#include <QDir>
 
 #include "gpioplugin.h"
 #include "gpioreaderthread.h"
@@ -39,6 +40,7 @@ GPIOPlugin::~GPIOPlugin()
 
 void GPIOPlugin::init()
 {
+    m_hasGPIO = QDir("/sys/class/gpio").exists();
     m_readerThread = NULL;
     m_inputUniverse = UINT_MAX;
     m_outputUniverse = UINT_MAX;
@@ -51,9 +53,7 @@ void GPIOPlugin::init()
         gpio->m_usage = NoUsage;
         gpio->m_value = 1;
         gpio->m_count = 0;
-
-        QString pinPath = QString("/sys/class/gpio/gpio%1/value").arg(i);
-        gpio->m_file = new QFile(pinPath);
+        gpio->m_file = (m_hasGPIO ? (new QFile(QString("/sys/class/gpio/gpio%1/value").arg(i))) : NULL);
 
         m_gpioList.append(gpio);
     }
@@ -85,6 +85,13 @@ QString GPIOPlugin::pluginInfo()
     str += QString("<P>");
     str += QString("<H3>%1</H3>").arg(name());
     str += tr("This plugin provides input/output on GPIO PINs.");
+    if (! m_hasGPIO)
+    {
+        str += "</P><P>";
+        str += tr("Since this machine's operating system does not have "
+                  "support for GPIO, you can only use the plugin to configure "
+                  "pins for use on another machine.");
+    }
     str += QString("</P>");
 
     return str;
@@ -191,16 +198,19 @@ void GPIOPlugin::setPinStatus(int gpioNumber, bool enable)
     if (m_gpioList.at(gpioNumber)->m_enabled == enable)
         return;
 
-    QString sysPath = QString("/sys/class/gpio/%1").arg(enable ? "export" : "unexport");
-    QString gpioStr = QString("%1").arg(gpioNumber);
-    QFile file(sysPath);
-    if (!file.open(QIODevice::WriteOnly))
+    if (m_hasGPIO)
     {
-        qDebug() << "[GPIO] error in opening export file" << sysPath;
-        return;
+        QString sysPath = QString("/sys/class/gpio/%1").arg(enable ? "export" : "unexport");
+        QString gpioStr = QString("%1").arg(gpioNumber);
+        QFile file(sysPath);
+        if (!file.open(QIODevice::WriteOnly))
+        {
+            qDebug() << "[GPIO] error in opening export file" << sysPath;
+            return;
+        }
+        file.write(gpioStr.toLatin1());
+        file.close();
     }
-    file.write(gpioStr.toLatin1());
-    file.close();
 
     m_gpioList[gpioNumber]->m_enabled = enable;
 }
@@ -224,7 +234,7 @@ void GPIOPlugin::setPinUsage(int gpioNumber, GPIOPlugin::PinUsage usage)
 
     if (usage == NoUsage)
     {
-        if (gpio->m_usage == InputUsage)
+        if (m_hasGPIO && (gpio->m_usage == InputUsage))
             m_gpioList[gpioNumber]->m_file->close();
 
         m_gpioList[gpioNumber]->m_usage = usage;
@@ -241,32 +251,35 @@ void GPIOPlugin::setPinUsage(int gpioNumber, GPIOPlugin::PinUsage usage)
     else
         setPinStatus(gpioNumber, true);
 
-    QString pinPath = QString("/sys/class/gpio/gpio%1/direction").arg(gpioNumber);
-    QFile file(pinPath);
-    int attempts = MAX_FILE_ATTEMPTS;
-
-    while (attempts)
+    if (m_hasGPIO)
     {
-        if (!file.open(QIODevice::WriteOnly))
+        QString pinPath = QString("/sys/class/gpio/gpio%1/direction").arg(gpioNumber);
+        QFile file(pinPath);
+        int attempts = MAX_FILE_ATTEMPTS;
+
+        while (attempts)
         {
-            attempts--;
-            usleep(200000);
+            if (!file.open(QIODevice::WriteOnly))
+            {
+                attempts--;
+                usleep(200000);
+            }
+            else
+                break;
         }
-        else
-            break;
-    }
 
-    if (attempts == 0)
-    {
-        qDebug() << "[GPIO] error in opening direction file" << pinPath;
-        return;
-    }
+        if (attempts == 0)
+        {
+            qDebug() << "[GPIO] error in opening direction file" << pinPath;
+            return;
+        }
 
-    if (usage == OutputUsage)
-        file.write("out");
-    else if (usage == InputUsage)
-        file.write("in");
-    file.close();
+        if (usage == OutputUsage)
+            file.write("out");
+        else if (usage == InputUsage)
+            file.write("in");
+        file.close();
+    }
 
     m_gpioList[gpioNumber]->m_usage = usage;
 
@@ -275,14 +288,11 @@ void GPIOPlugin::setPinUsage(int gpioNumber, GPIOPlugin::PinUsage usage)
         m_readerThread->updateReadPINs();
         m_readerThread->pause(false);
     }
-    else
+    else if (m_hasGPIO && (usage == InputUsage))
     {
-        if (usage == InputUsage)
-        {
-            m_readerThread = new ReadThread(this);
-            connect(m_readerThread, SIGNAL(valueChanged(quint32,uchar)),
-                    this, SLOT(slotValueChanged(quint32,uchar)));
-        }
+        m_readerThread = new ReadThread(this);
+        connect(m_readerThread, SIGNAL(valueChanged(quint32,uchar)),
+                this, SLOT(slotValueChanged(quint32,uchar)));
     }
 }
 
@@ -292,23 +302,26 @@ void GPIOPlugin::setPinValue(int gpioNumber, uchar value)
         return;
 
     GPIOPinInfo *gpio = m_gpioList.at(gpioNumber);
-    if (gpio->m_file->isOpen() == false)
+    if (m_hasGPIO)
     {
-        //qDebug() << "[GPIO] Opening value file of PIN" << gpioNumber;
-        if (!gpio->m_file->open(QIODevice::WriteOnly))
+        if (gpio->m_file->isOpen() == false)
         {
-            qDebug() << "[GPIO] Error, cannot open PIN" << gpioNumber << "for writing";
-            return;
+            //qDebug() << "[GPIO] Opening value file of PIN" << gpioNumber;
+            if (!gpio->m_file->open(QIODevice::WriteOnly))
+            {
+                qDebug() << "[GPIO] Error, cannot open PIN" << gpioNumber << "for writing";
+                return;
+            }
         }
-    }
 
-    qDebug() << "[GPIO] writing PIN" << gpioNumber << "with value" << value;
-    //gpio->m_file->reset();
-    //gpio->m_file->write(QString::number(value).toLatin1());
-    gpio->m_file->putChar(value + 48);
-    gpio->m_file->close();
-    //gpio->m_file->write("\n");
-    m_gpioList[gpioNumber]->m_value = value;
+        qDebug() << "[GPIO] writing PIN" << gpioNumber << "with value" << value;
+        //gpio->m_file->reset();
+        //gpio->m_file->write(QString::number(value).toLatin1());
+        gpio->m_file->putChar(value + 48);
+        gpio->m_file->close();
+        //gpio->m_file->write("\n");
+    }
+    gpio->m_value = value;
 }
 
 /*************************************************************************

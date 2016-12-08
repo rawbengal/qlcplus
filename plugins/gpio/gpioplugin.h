@@ -68,6 +68,7 @@ public:
     QList<GPIOPinInfo *> gpioList() const;
 
 protected:
+    bool m_hasGPIO;
     QList<GPIOPinInfo *> m_gpioList;
     ReadThread *m_readerThread;
     quint32 m_inputUniverse, m_outputUniverse;
